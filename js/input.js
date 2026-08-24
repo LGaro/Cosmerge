@@ -1,0 +1,567 @@
+// Cosmerge - pointer input (drag/tap merge) + all button/action handlers
+"use strict";
+
+function localPos(e) {
+  if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  if (e.changedTouches && e.changedTouches[0]) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+  return { x: e.clientX, y: e.clientY };
+}
+function cellIdxAtPoint(x, y) {
+  const target = document.elementFromPoint(x, y);
+  if (!target) return null;
+  const cellEl = target.closest(".cell");
+  if (!cellEl) return null;
+  return parseInt(cellEl.dataset.idx, 10);
+}
+function createGhost(tier, x, y) {
+  const g = document.createElement("div");
+  g.className = "ghostTile";
+  g.style.cssText += tierStyle(tier);
+  g.innerHTML = `<span class="emoji">${TIERS[tier - 1].emoji}</span>`;
+  g.style.left = x + "px"; g.style.top = y + "px";
+  document.body.appendChild(g);
+  return g;
+}
+
+let pointerState = null;
+
+function onPointerDown(e) {
+  if (!dom.panelOverlay.classList.contains("hidden") || !dom.drawerOverlay.classList.contains("hidden")) return;
+  const pos = localPos(e);
+  const idx = cellIdxAtPoint(pos.x, pos.y);
+  if (idx === null) return;
+  e.preventDefault();
+  ensureAudio();
+
+  const state = Game.state;
+  if (!state.unlocked[idx]) {
+    handleLockedTap(idx);
+    return;
+  }
+
+  pointerState = { idx, startX: pos.x, startY: pos.y, dragging: false, ghostEl: null };
+  window.addEventListener("pointermove", onPointerMove);
+  window.addEventListener("pointerup", onPointerUp);
+  window.addEventListener("touchmove", onPointerMove, { passive: false });
+  window.addEventListener("touchend", onPointerUp);
+}
+
+function onPointerMove(e) {
+  if (!pointerState) return;
+  const pos = localPos(e);
+  const dx = pos.x - pointerState.startX, dy = pos.y - pointerState.startY;
+  if (!pointerState.dragging && Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+    const tileData = Game.state.grid[pointerState.idx];
+    if (!tileData) return;
+    pointerState.dragging = true;
+    cellEls[pointerState.idx].querySelector(".tile")?.classList.add("dragging");
+    pointerState.ghostEl = createGhost(tileData.tier, pos.x, pos.y);
+  }
+  if (pointerState.dragging && pointerState.ghostEl) {
+    e.preventDefault && e.preventDefault();
+    pointerState.ghostEl.style.left = pos.x + "px";
+    pointerState.ghostEl.style.top = pos.y + "px";
+  }
+}
+
+function onPointerUp(e) {
+  if (!pointerState) return;
+  window.removeEventListener("pointermove", onPointerMove);
+  window.removeEventListener("pointerup", onPointerUp);
+  window.removeEventListener("touchmove", onPointerMove);
+  window.removeEventListener("touchend", onPointerUp);
+
+  const pos = localPos(e);
+  const { idx, dragging, ghostEl } = pointerState;
+  pointerState = null;
+  if (ghostEl) ghostEl.remove();
+  cellEls[idx].querySelector(".tile")?.classList.remove("dragging");
+
+  if (dragging) {
+    const targetIdx = cellIdxAtPoint(pos.x, pos.y);
+    if (targetIdx !== null && targetIdx !== idx && Game.state.unlocked[targetIdx] && Game.state.grid[targetIdx] && areAdjacent(idx, targetIdx)) {
+      attemptMerge(idx, targetIdx);
+    } else {
+      renderCell(idx);
+    }
+    clearSelection();
+    return;
+  }
+  handleTap(idx);
+}
+
+function handleTap(idx) {
+  const state = Game.state;
+  const tileHere = state.grid[idx];
+
+  if (Game.selectedIdx !== null && Game.selectedIdx !== idx) {
+    const selTile = state.grid[Game.selectedIdx];
+    if (selTile && tileHere && areAdjacent(idx, Game.selectedIdx) && selTile.tier === tileHere.tier) {
+      attemptMerge(Game.selectedIdx, idx);
+      clearSelection();
+      return;
+    }
+  }
+  if (Game.selectedIdx === idx) {
+    clearSelection();
+    if (tileHere) grantTapBonus(idx);
+    return;
+  }
+  selectCell(idx);
+  if (tileHere) grantTapBonus(idx);
+}
+
+function handleLockedTap(idx) {
+  const state = Game.state;
+  if (Game.skipCellArmed) {
+    const result = buyGemShopItem(state, "skipCell", { cellIndex: idx });
+    Game.skipCellArmed = false;
+    if (result.ok) { Sfx.unlock(); toast("Case débloquée avec des Gems !"); }
+    else { Sfx.error(); toast(result.reason === "funds" ? "Pas assez de Gems." : "Impossible de débloquer cette case."); }
+    renderAll();
+    saveState(state);
+    return;
+  }
+  tryUnlock(idx);
+}
+
+function attemptMerge(fromIdx, toIdx) {
+  const state = Game.state;
+  const before = state.grid[fromIdx];
+  if (before && before.tier >= TIERS.length) { Sfx.error(); toast("L'Univers ne peut pas fusionner davantage."); return; }
+  const result = performMerge(state, fromIdx, toIdx);
+  if (!result) return;
+  renderCell(fromIdx);
+  renderCell(toIdx, { merged: true });
+  spawnParticles(toIdx);
+  Sfx.merge(result.newTier);
+  HapticService.impact(result.newTier >= 8 ? "heavy" : "medium");
+  if (result.gemBonus) toast("+1 💎 Gem bonus !");
+  if (result.newTier === TIERS.length) toast("Univers créé ! 💥 Le Big Bang est disponible.");
+  else toast(TIERS[result.newTier - 1].name + " " + TIERS[result.newTier - 1].emoji + " !");
+  updateHeader();
+  updateFabs();
+  saveState(state);
+  maybeOpenGodRitual();
+}
+
+function maybeOpenGodRitual() {
+  if (Game.pendingGodRitual) {
+    Game.pendingGodRitual = false;
+    openGodPickerModal();
+  }
+}
+
+function grantTapBonus(idx) {
+  const now = performance.now();
+  if (Game.cooldownUntil[idx] > now) return false;
+  const state = Game.state;
+  const tile = state.grid[idx];
+  if (!tile) return false;
+  const bonus = 5 * effectiveTileProd(state, tile.tier);
+  grantStardust(state, bonus);
+  updateQuestProgress(state, "tapBonuses", 1);
+  resetErebusStreak(state);
+  Game.cooldownUntil[idx] = now + TAP_COOLDOWN_MS;
+  Sfx.tap();
+  spawnFloatingBonus(idx, bonus);
+  updateHeader();
+  saveState(state);
+  return true;
+}
+
+function tryUnlock(idx) {
+  const state = Game.state;
+  if (state.unlocked[idx]) return;
+  const cost = unlockCost(state.extraUnlockedCount);
+  if (state.stardust < cost) { toast("Pas assez de Stardust (" + formatNumber(cost) + "✨ requis)"); Sfx.error(); return; }
+  spendStardust(state, cost);
+  state.unlocked[idx] = true;
+  state.extraUnlockedCount += 1;
+  updateQuestProgress(state, "unlockCells", 1);
+  checkAchievements(state);
+  Sfx.unlock();
+  toast("Case débloquée !");
+  renderCell(idx);
+  refreshLockedCellPrices(); // every other locked cell's price just changed too
+  updateHeader();
+  saveState(state);
+}
+
+function doInvoke() {
+  const state = Game.state;
+  const cost = invokeCost(state.manualSpawnCount);
+  if (state.stardust < cost) { toast("Pas assez de Stardust pour invoquer."); Sfx.error(); return; }
+  let target = (Game.selectedIdx !== null && state.unlocked[Game.selectedIdx] && !state.grid[Game.selectedIdx]) ? Game.selectedIdx : null;
+  if (target === null) {
+    const empties = emptyUnlockedIndices(state);
+    if (empties.length === 0) { toast("La grille est pleine !"); Sfx.error(); return; }
+    target = empties[Math.floor(Math.random() * empties.length)];
+  }
+  spendStardust(state, cost);
+  state.manualSpawnCount += 1;
+  state.grid[target] = { tier: 1 };
+  renderCell(target, { spawned: true });
+  Sfx.spawn();
+  updateQuestProgress(state, "invokes", 1);
+  clearSelection();
+  updateHeader();
+  saveState(state);
+}
+
+function clearSelection() {
+  const prev = Game.selectedIdx;
+  Game.selectedIdx = null;
+  if (prev !== null) renderCell(prev);
+  updateHeader();
+}
+function selectCell(idx) {
+  const prev = Game.selectedIdx;
+  Game.selectedIdx = idx;
+  if (prev !== null && prev !== idx) renderCell(prev);
+  renderCell(idx);
+  updateHeader();
+}
+
+// ---------------- Auto spawn ----------------
+function tickAutoSpawn(now) {
+  const state = Game.state;
+  const interval = autoSpawnIntervalMs(state);
+  if (now - Game.lastAutoSpawn >= interval) {
+    Game.lastAutoSpawn = now;
+    const empties = emptyUnlockedIndices(state);
+    if (empties.length > 0) {
+      const idx = empties[Math.floor(Math.random() * empties.length)];
+      state.grid[idx] = { tier: 1 };
+      renderCell(idx, { spawned: true });
+      updateQuestProgress(state, "autoSpawns", 1);
+      saveState(state);
+    }
+  }
+}
+
+// ---------------- Big Bang / interstitial ----------------
+async function maybeShowInterstitial() {
+  const state = Game.state;
+  if (adsRemoved(state)) return;
+  const now = Date.now();
+  if (now - Game.sessionStart < INTERSTITIAL_QUIET_START_MS) return;
+  if (now - Game.lastInterstitial < INTERSTITIAL_MIN_GAP_MS) return;
+  Game.lastInterstitial = now;
+  await AdService.showInterstitial();
+}
+
+function onBigBangConfirm() {
+  const state = Game.state;
+  const gain = performBigBang(state);
+  Sfx.bigBang();
+  HapticService.impact("success");
+  closeBigBangModal();
+  toast(`Big Bang ! +${gain} ⚡ Énergie Cosmique`);
+  renderAll();
+  saveState(state);
+  maybeShowInterstitial();
+}
+
+async function onSaveCodeAction() {
+  const textarea = $("saveCodeText");
+  if (Game.saveCodeMode === "export") {
+    textarea.select();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(textarea.value);
+        toast("Code copié !");
+      } catch (e) {
+        toast("Copie automatique indisponible : sélectionne le texte et copie-le à la main.");
+      }
+    } else {
+      toast("Sélectionne le texte ci-dessus et copie-le à la main.");
+    }
+    return;
+  }
+  const imported = importSaveCode(textarea.value);
+  if (!imported) { Sfx.error(); toast("Code invalide."); return; }
+  Object.assign(Game.state, imported);
+  Game.displayedStardust = Game.state.stardust;
+  saveState(Game.state);
+  closeSaveCodeModal();
+  renderAll();
+  toast("Sauvegarde restaurée !");
+}
+
+// ---------------- Offline modal actions ----------------
+async function onOfflineCollect() {
+  const state = Game.state;
+  grantStardust(state, Game.pendingOfflineGain.gain);
+  $("offlineModal").classList.add("hidden");
+  updateHeader();
+  saveState(state);
+}
+async function onOfflineDouble() {
+  const state = Game.state;
+  $("offlineCollect").disabled = true; $("offlineDouble").disabled = true;
+  const ok = await AdService.showRewarded("offline_double");
+  grantStardust(state, Game.pendingOfflineGain.gain * (ok ? 2 : 1));
+  $("offlineCollect").disabled = false; $("offlineDouble").disabled = false;
+  $("offlineModal").classList.add("hidden");
+  toast(ok ? "Gains doublés !" : "Publicité non complétée.");
+  updateHeader();
+  saveState(state);
+}
+
+// ---------------- Daily login actions ----------------
+function onDailyClaim() {
+  const state = Game.state;
+  const result = claimDailyLogin(state);
+  if (!result) return;
+  Sfx.chest();
+  toast(`Jour ${result.cycleDay} récupéré : ${result.reward.label}`);
+  openDailyModal();
+  renderAll(); // an unlockCell/bigReward reward can change the grid or currencies
+  saveState(state);
+}
+
+// ---------------- Wheel actions ----------------
+function spinVisual(cb) {
+  const wheel = $("wheelEl");
+  const extra = 1440 + Math.floor(Math.random() * 360);
+  wheel.style.transform = `rotate(${extra}deg)`;
+  setTimeout(cb, 3500);
+}
+function onWheelSpinFree() {
+  $("wheelSpinFree").disabled = true; $("wheelSpinAd").disabled = true;
+  spinVisual(() => {
+    const prize = spinWheel(Game.state, false);
+    $("wheelResult").textContent = prize ? `Gagné : ${prize.label}` : "Déjà utilisé aujourd'hui.";
+    Sfx.chest();
+    refreshWheelButtons();
+    updateHeader(); updateFabs();
+    saveState(Game.state);
+  });
+}
+async function onWheelSpinAd() {
+  $("wheelSpinFree").disabled = true; $("wheelSpinAd").disabled = true;
+  const ok = await AdService.showRewarded("wheel_bonus");
+  if (!ok) { refreshWheelButtons(); return; }
+  spinVisual(() => {
+    const prize = spinWheel(Game.state, true);
+    $("wheelResult").textContent = prize ? `Gagné : ${prize.label}` : "Déjà utilisé aujourd'hui.";
+    Sfx.chest();
+    refreshWheelButtons();
+    updateHeader(); updateFabs();
+    saveState(Game.state);
+  });
+}
+
+// ---------------- Free planet fab ----------------
+async function onFreePlanet() {
+  const state = Game.state;
+  if (Date.now() < state.cooldowns.freePlanetUntil) {
+    toast("Disponible dans " + formatDuration(state.cooldowns.freePlanetUntil - Date.now()));
+    return;
+  }
+  toast("📺 Chargement de la publicité...");
+  const ok = await AdService.showRewarded("free_planet");
+  if (!ok) return;
+  const result = grantFreePlanet(state);
+  if (result.ok) { renderCell(result.idx, { spawned: true }); Sfx.spawn(); toast("🪐 Planète gratuite reçue !"); }
+  else { toast("La grille est pleine !"); }
+  updateFabs();
+  saveState(state);
+}
+
+// ---------------- Shop / IAP / skills / quests handlers ----------------
+async function onWatchProdBoostAd() {
+  const state = Game.state;
+  const boostActive = state.cooldowns.prodBoostActiveUntil > Date.now();
+  if (boostActive) { toast("Boost déjà actif encore " + formatDuration(state.cooldowns.prodBoostActiveUntil - Date.now())); return; }
+  if (Date.now() < state.cooldowns.prodBoostUntil) {
+    toast("Disponible dans " + formatDuration(state.cooldowns.prodBoostUntil - Date.now()));
+    return;
+  }
+  toast("📺 Chargement de la publicité...");
+  const ok = await AdService.showRewarded("prod_boost");
+  if (!ok) return;
+  activateProdBoost(state);
+  Sfx.purchase();
+  toast("🚀 Boost x2 production activé pour 30 min !");
+  refreshCurrentPanel();
+  updateHeader();
+  updateFabs();
+  saveState(state);
+}
+function onBuyGemItem(itemId) {
+  if (itemId === "skipCell") {
+    Game.skipCellArmed = true;
+    closePanel();
+    toast("Tape une case verrouillée à débloquer avec des Gems.");
+    renderAll();
+    return;
+  }
+  const result = buyGemShopItem(Game.state, itemId);
+  if (!result.ok) { Sfx.error(); toast("Pas assez de Gems."); return; }
+  Sfx.purchase();
+  if (itemId === "fusionExpress") {
+    const merges = result.merges || [];
+    renderAll(); // fusions already resolved in state; refresh every cell (sources emptied + destinations upgraded)
+    merges.forEach(e => spawnParticles(e.toIdx));
+    toast(merges.length > 0 ? `Fusion Express : ${merges.length} fusion(s) !` : "Aucune fusion possible pour l'instant.");
+  } else if (itemId === "cosmicBox") {
+    const box = result.box;
+    if (box.duplicate) toast(`Déjà possédé : ${box.god.name} → +${box.gems} 💎`);
+    else toast(`✨ Nouveau Dieu : ${box.god.name} ${box.god.emoji} !`);
+  } else {
+    toast("Achat effectué !");
+  }
+  refreshCurrentPanel();
+  updateHeader();
+  saveState(Game.state);
+  maybeOpenGodRitual();
+}
+function onSkinAction(skinId, owned) {
+  const state = Game.state;
+  if (owned) {
+    equipSkin(state, skinId);
+  } else {
+    const result = buySkinWithGems(state, skinId);
+    if (!result.ok) { Sfx.error(); toast("Pas assez de Gems."); return; }
+    equipSkin(state, skinId);
+    Sfx.purchase();
+  }
+  renderAll();
+  refreshCurrentPanel();
+  saveState(state);
+}
+async function onBuyIAP(productId) {
+  const product = IAP_CATALOG.find(p => p.id === productId);
+  const res = await IAPService.purchase(productId);
+  if (!res.success) return;
+  const state = Game.state;
+  switch (productId) {
+    case "remove_ads": state.iap.removeAds = true; break;
+    case "starter_pack":
+      state.gems += 500; state.lifetime.gemsEarned += 500;
+      { const locked = []; for (let i = 0; i < TOTAL; i++) if (!state.unlocked[i]) locked.push(i);
+        for (let k = 0; k < 3 && locked.length; k++) { const pick = locked.splice(Math.floor(Math.random() * locked.length), 1)[0]; state.unlocked[pick] = true; state.extraUnlockedCount += 1; } }
+      state.cooldowns.prodBoostActiveUntil = Date.now() + 3600000;
+      break;
+    case "gems_small": case "gems_medium": case "gems_large": case "gems_mega":
+      state.gems += product.amount; state.lifetime.gemsEarned += product.amount; break;
+    case "vip_monthly": state.iap.vipUntil = Date.now() + 30 * 24 * 3600 * 1000; break;
+    case "skin_pack_violet": case "skin_pack_green": case "skin_pack_red":
+      unlockSkinFree(state, product.skinId); state.iap.ownedSkinPacks.push(product.skinId); break;
+  }
+  Sfx.purchase();
+  toast("Achat confirmé (simulation) : " + product.name);
+  refreshCurrentPanel();
+  renderAll();
+  saveState(state);
+}
+async function onRestorePurchases() {
+  await IAPService.restorePurchases();
+  toast("Achats restaurés (simulation).");
+  refreshCurrentPanel();
+}
+function onChooseGod(godId) {
+  const state = Game.state;
+  chooseGod(state, godId);
+  Sfx.purchase();
+  const willQueueForNextRun = !!state.gods.currentGodId && state.gods.currentGodId !== godId;
+  toast(willQueueForNextRun ? "Choisi pour le prochain Big Bang." : `${getGod(godId).name} t'accompagne désormais !`);
+  refreshCurrentPanel();
+  saveState(state);
+}
+function onBuyGod(godId) {
+  const result = buyGodWithGems(Game.state, godId);
+  if (!result.ok) { Sfx.error(); toast("Pas assez de Gems."); return; }
+  refreshCurrentPanel();
+  updateHeader();
+  saveState(Game.state);
+}
+
+function onBuySkill(key) {
+  const result = buySkill(Game.state, key);
+  if (!result.ok) { Sfx.error(); toast(result.reason === "max" ? "Niveau maximum atteint." : "Pas assez d'Énergie Cosmique."); return; }
+  Sfx.purchase();
+  toast(SKILL_TREE[key].name + " amélioré !");
+  refreshCurrentPanel();
+  updateHeader();
+  saveState(Game.state);
+}
+function onClaimQuest(id) {
+  const reward = claimQuest(Game.state, id);
+  if (reward === null) return;
+  Sfx.quest();
+  toast(`Quête réclamée : +${reward} 💎`);
+  refreshCurrentPanel();
+  updateHeader();
+  saveState(Game.state);
+}
+async function onBonusAdQuest() {
+  const state = Game.state;
+  if (state.quests.bonusAd.claimed) return;
+  if (!state.quests.bonusAd.done) {
+    const ok = await AdService.showRewarded("quest_ad");
+    if (!ok) return;
+    markBonusAdQuestDone(state);
+    refreshCurrentPanel();
+    saveState(state);
+    return;
+  }
+  const reward = claimBonusAdQuest(state);
+  if (reward) { Sfx.quest(); toast(`Quête bonus réclamée : +${reward} 💎`); refreshCurrentPanel(); updateHeader(); saveState(state); }
+}
+
+// ---------------- Wiring ----------------
+// A single delegated listener covers every chrome button (menu, tabs, panel
+// close, switches, fabs...) instead of wiring a click sound at each call
+// site. Buttons that already play their own distinct sound synchronously on
+// click (Invoquer, Big Bang confirm) either stop propagation or are excluded
+// by id below, so this never doubles up with them.
+const SILENT_CLICK_IDS = new Set(["bigBangConfirm", "invokeBtn"]);
+function wireClickSound() {
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest(".btn, .drawerItem, .iconBtn, .fab, .switch, .tabBtn");
+    if (!el || el.disabled || SILENT_CLICK_IDS.has(el.id)) return;
+    Sfx.click();
+  });
+}
+
+function wireEvents() {
+  wireClickSound();
+  document.addEventListener("pointerdown", onPointerDown, { passive: false });
+  document.addEventListener("touchstart", onPointerDown, { passive: false });
+
+  dom.invokeBtn.addEventListener("click", () => { ensureAudio(); doInvoke(); });
+  dom.bigBangBtn.addEventListener("click", () => openBigBangModal());
+  dom.menuBtn.addEventListener("click", () => openDrawer());
+  dom.drawerClose.addEventListener("click", closeDrawer);
+  dom.drawerOverlay.addEventListener("click", (e) => { if (e.target === dom.drawerOverlay) closeDrawer(); });
+  document.querySelectorAll(".drawerItem[data-panel]").forEach(b => b.addEventListener("click", () => openPanel(b.dataset.panel)));
+  dom.panelClose.addEventListener("click", closePanel);
+
+  $("fabShop").addEventListener("click", () => openPanel("shop"));
+  dom.fabDailyLogin.addEventListener("click", openDailyModal);
+  dom.fabWheel.addEventListener("click", openWheelModal);
+  dom.fabFreePlanet.addEventListener("click", onFreePlanet);
+  $("fabBoost").addEventListener("click", onWatchProdBoostAd);
+
+  $("tutNext").addEventListener("click", () => { tutIndex++; if (tutIndex >= TUT_STEPS.length) endTutorial(); else showTutStep(tutIndex); });
+  $("tutSkip").addEventListener("click", () => endTutorial());
+
+  $("offlineCollect").addEventListener("click", onOfflineCollect);
+  $("offlineDouble").addEventListener("click", onOfflineDouble);
+
+  $("dailyClaim").addEventListener("click", onDailyClaim);
+  $("dailyClose").addEventListener("click", closeDailyModal);
+
+  $("wheelSpinFree").addEventListener("click", onWheelSpinFree);
+  $("wheelSpinAd").addEventListener("click", onWheelSpinAd);
+  $("wheelClose").addEventListener("click", closeWheelModal);
+
+  $("bigBangConfirm").addEventListener("click", onBigBangConfirm);
+  $("bigBangCancel").addEventListener("click", closeBigBangModal);
+
+  $("saveCodeCancel").addEventListener("click", closeSaveCodeModal);
+  $("saveCodeAction").addEventListener("click", onSaveCodeAction);
+}

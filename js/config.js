@@ -1,0 +1,297 @@
+// Cosmerge - configuration & pure formulas (no state, no DOM)
+"use strict";
+
+const COLS = 6, ROWS = 5, TOTAL = COLS * ROWS;
+const SAVE_KEY = "cosmerge_save_v2";
+const SAVE_VERSION = 2;
+const AUTOSAVE_MS = 5000;
+const BASE_AUTO_SPAWN_MS = 8000;
+const MIN_AUTO_SPAWN_MS = 3000;
+const TAP_COOLDOWN_MS = 1000;
+const DRAG_THRESHOLD = 10;
+const BASE_OFFLINE_CAP_H = 8;
+const MAX_OFFLINE_CAP_H = 24;
+const FREE_PLANET_COOLDOWN_MS = 4 * 60 * 60 * 1000;
+const PROD_BOOST_COOLDOWN_MS = 20 * 60 * 1000;
+const PROD_BOOST_DURATION_MS = 30 * 60 * 1000;
+const INTERSTITIAL_MIN_GAP_MS = 3 * 60 * 1000;
+const INTERSTITIAL_QUIET_START_MS = 60 * 1000;
+const MOON_MERGES_TO_CHOOSE_GOD = 4;
+
+const TIERS = [
+  { n: 1, name: "Météorite", emoji: "☄️", from: "#8a8a8a", to: "#2b2b2b" },
+  { n: 2, name: "Lune", emoji: "🌙", from: "#e8e8f2", to: "#8a8aa0" },
+  { n: 3, name: "Planète naine", emoji: "🪨", from: "#d3ac7a", to: "#7a5c3a" },
+  { n: 4, name: "Planète", emoji: "🌍", from: "#63c4ff", to: "#1e5f8c" },
+  { n: 5, name: "Géante gazeuse", emoji: "🪐", from: "#f6d365", to: "#b8722e" },
+  { n: 6, name: "Étoile", emoji: "⭐", from: "#fff9c4", to: "#ff9800" },
+  { n: 7, name: "Étoile à neutrons", emoji: "💫", from: "#e0f7ff", to: "#00b8d4" },
+  { n: 8, name: "Trou noir", emoji: "🕳️", from: "#6a2bb8", to: "#000000" },
+  { n: 9, name: "Galaxie", emoji: "🌌", from: "#ff7ce8", to: "#4a00e0" },
+  { n: 10, name: "Univers", emoji: "✨", from: "#ffffff", to: "#ffd54f" },
+];
+
+const INITIAL_UNLOCKED = [7, 8, 9, 10, 11, 13, 14, 15, 16, 17];
+
+const SKINS = [
+  { id: "default", name: "Nébuleuse par défaut", cost: 0, currency: "gems" },
+  { id: "violet", name: "Nébuleuse violette", cost: 150, currency: "gems",
+    colors: ["#c9a6ff", "#7c3aed"] },
+  { id: "green", name: "Aurore verte", cost: 150, currency: "gems",
+    colors: ["#a7f3c8", "#059669"] },
+  { id: "red", name: "Supernova rouge", cost: 150, currency: "gems",
+    colors: ["#ffb3a6", "#dc2626"] },
+];
+
+// ---- Skill tree (permanent, spent with Cosmic Energy) ----
+const SKILL_TREE = {
+  prod: { name: "Production Stellaire", desc: "+3% production globale / niveau", maxLevel: 50, base: 1, growth: 1.25 },
+  swarm: { name: "Essaim", desc: "+1 case de départ déverrouillée / niveau", maxLevel: 10, base: 2, growth: 1.4 },
+  gravity: { name: "Gravité Rapide", desc: "-5% cooldown de spawn auto / niveau (plancher 3s)", maxLevel: 8, base: 1, growth: 1.3 },
+  echo: { name: "Écho Temporel", desc: "+2h de plafond hors-ligne / niveau (max 24h)", maxLevel: 8, base: 2, growth: 1.35 },
+  luck: { name: "Chance Cosmique", desc: "+1% chance de Gem bonus par fusion / niveau", maxLevel: 20, base: 1, growth: 1.2 },
+};
+
+function skillCost(branchKey, nextLevel) {
+  const b = SKILL_TREE[branchKey];
+  return Math.ceil(b.base * Math.pow(b.growth, nextLevel - 1));
+}
+
+// ---- Gods of the Cosmos ----
+// One god is equipped per run (chosen the first time you reach
+// MOON_MERGES_TO_CHOOSE_GOD, changeable anytime but only takes effect on the
+// next Big Bang - see gods.js). Each god's `effects` keys are read by
+// gods.js's getGodEffects() and applied at the specific point in the game
+// logic named in the comment beside it.
+const RARITY = {
+  commun: { label: "Commun", color: "#9ca3af" },
+  rare: { label: "Rare", color: "#38bdf8" },
+  epique: { label: "Épique", color: "#a855f7" },
+  legendaire: { label: "Légendaire", color: "#fbbf24" },
+};
+
+const GODS = [
+  {
+    id: "selena", name: "Séléna", title: "Déesse des Lunes", emoji: "🌙",
+    rarity: "commun", alignment: "bienveillant",
+    desc: "+15% production des Lunes et Planètes naines",
+    effects: { tierProdBonus: { minTier: 2, maxTier: 3, mult: 1.15 } }, // used in state.js effectiveTileProd/totalProduction
+    unlock: { type: "ritual" }, // granted automatically by the moon-merge ritual, see gods.js
+    lore: "La première à avoir répondu à l'appel du rituel des lunes. Séléna veille sur chaque fragment qui tourne encore dans le noir, patiente, et guide la main du fusionneur novice.",
+  },
+  {
+    id: "astreos", name: "Astréos", title: "Gardien des Astéroïdes", emoji: "☄️",
+    rarity: "commun", alignment: "bienveillant",
+    desc: "Spawn automatique 10% plus rapide",
+    effects: { spawnSpeedMult: 0.9 }, // used in state.js autoSpawnIntervalMs
+    unlock: { type: "milestone", check: (s) => s.lifetime.fusions >= 50, label: "Réalise 50 fusions à vie" },
+    lore: "Il fut le premier corps à se briser lors de la Rupture. Depuis, il pousse inlassablement la poussière vers la lumière, pour que jamais une case ne reste vide trop longtemps.",
+  },
+  {
+    id: "nyx", name: "Nyx", title: "Dame du Vide", emoji: "🌌",
+    rarity: "rare", alignment: "bienveillant",
+    desc: "+1 case de départ supplémentaire",
+    effects: { extraStartCells: 1 }, // used in state.js freshGrid
+    unlock: { type: "milestone", check: (s) => s.achievements.unlockedIds.includes("unlocked_20"), label: "Débloque 20 cases en une partie" },
+    lore: "Nyx n'a jamais choisi de camp - elle est l'espace lui-même, celui qui reste à conquérir. Ceux qui apprennent à l'apprivoiser trouvent toujours un peu plus de place qu'annoncé.",
+  },
+  {
+    id: "helios", name: "Hélios", title: "Cœur Ardent", emoji: "☀️",
+    rarity: "rare", alignment: "bienveillant",
+    desc: "+20% production des Étoiles et Étoiles à neutrons",
+    effects: { tierProdBonus: { minTier: 6, maxTier: 7, mult: 1.2 } },
+    unlock: { type: "milestone", check: (s) => s.lifetime.maxTierEver >= 7, label: "Atteins le palier Étoile à neutrons" },
+    lore: "Quand la fusion atteint l'incandescence, Hélios se réveille. Il ne connaît qu'une loi : brûler plus fort, encore, jusqu'à ce que le froid du vide n'ait plus aucune prise.",
+  },
+  {
+    id: "chronos", name: "Chronos", title: "Maître du Temps", emoji: "⏳",
+    rarity: "rare", alignment: "bienveillant",
+    desc: "+4h de plafond de gains hors-ligne",
+    effects: { offlineCapBonusH: 4 }, // used in state.js offlineCapHours
+    unlock: { type: "milestone", check: (s) => s.lifetime.bigBangCount >= 3, label: "Déclenche 3 Big Bang" },
+    lore: "Chronos a vu trois univers se replier sur eux-mêmes et renaître. Il ne juge plus le temps qui passe - il apprend simplement à en garder un peu plus de côté pour toi.",
+  },
+  {
+    id: "erebus", name: "Erebus", title: "Seigneur du Chaos", emoji: "🌑",
+    rarity: "epique", alignment: "dechu",
+    desc: "+25% Gems gagnées, mais -10% production globale",
+    effects: { gemsMult: 1.25, prodMult: 0.9 },
+    unlock: {
+      type: "challenge", challengeId: "erebus",
+      label: "Défi : enchaîne 15 fusions sans utiliser le bonus manuel (tap)",
+      target: 15,
+    },
+    lore: "Erebus fut banni pour avoir préféré le désordre fécond à l'ordre stérile. Le servir a un prix - moins de matière produite - mais il paie grassement en poussière précieuse ceux qui l'acceptent.",
+  },
+  {
+    id: "thanatos", name: "Thanatos", title: "l'Inévitable", emoji: "💀",
+    rarity: "epique", alignment: "dechu",
+    desc: "Le prochain Big Bang garantit au moins 5 ⚡ Énergie Cosmique",
+    effects: { bigBangMinEnergy: 5 }, // used in economy.js performBigBang
+    unlock: {
+      type: "challenge", challengeId: "thanatos",
+      label: "Défi : déclenche un Big Bang alors que la grille n'est pas encore pleine",
+      target: 1,
+    },
+    lore: "Thanatos n'attend jamais que tout soit fini pour mettre un terme aux choses. Il enseigne qu'un cycle interrompu à temps vaut parfois mieux qu'un cycle mené jusqu'à l'épuisement.",
+  },
+  {
+    id: "gaia", name: "Gaïa Suprême", title: "Créatrice", emoji: "🌍",
+    rarity: "legendaire", alignment: "bienveillant",
+    desc: "+10% à toute la production, +5% chance de Gem bonus par fusion",
+    effects: { prodMult: 1.1, gemChanceBonus: 0.05 },
+    unlock: { type: "shop", cost: 800, altCheck: (s) => s.lifetime.bigBangCount >= 10, altLabel: "ou 10 Big Bang déclenchés" },
+    lore: "Avant la Rupture, Gaïa était le Cosmos tout entier. Ce qu'elle t'offre n'est qu'un souvenir de cette unité - mais même un souvenir de la Création reste un cadeau immense.",
+  },
+  {
+    id: "morgorath", name: "Morgorath", title: "Dévoreur d'Étoiles", emoji: "🕳️",
+    rarity: "legendaire", alignment: "dechu",
+    desc: "+40% production des Trous noirs, Galaxies et Univers",
+    effects: { tierProdBonus: { minTier: 8, maxTier: 10, mult: 1.4 } },
+    unlock: {
+      type: "shop", cost: 800,
+      altCheck: (s) => s.gods.morgorathChallengeCleared, altLabel: "ou atteins l'Univers sans Fusion Express dans la partie",
+    },
+    lore: "Morgorath ne crée rien - il concentre. Chaque étoile qu'il engloutit devient un peu plus dense, un peu plus lourde, jusqu'à ce que la lumière elle-même n'ose plus s'en échapper.",
+  },
+];
+
+// ---- Daily login cycle (7 days) ----
+const DAILY_REWARDS = [
+  { day: 1, type: "stardust", amount: 100, label: "100 ✨" },
+  { day: 2, type: "gems", amount: 20, label: "20 💎" },
+  { day: 3, type: "unlockCell", amount: 1, label: "1 case débloquée" },
+  { day: 4, type: "stardust", amount: 300, label: "300 ✨" },
+  { day: 5, type: "gems", amount: 40, label: "40 💎" },
+  { day: 6, type: "skinFragment", amount: 1, label: "Fragment de skin" },
+  { day: 7, type: "bigReward", amount: 1, label: "1 ⚡ Énergie Cosmique + gros lot ✨" },
+];
+const SKIN_FRAGMENTS_REQUIRED = 3;
+
+// ---- Daily quest pool (templates); 3 drawn per day + 1 bonus "watch ad" ----
+const QUEST_POOL = [
+  { id: "fuse15", desc: "Fusionne 15 fois", type: "fusions", target: 15, reward: 10 },
+  { id: "fuse30", desc: "Fusionne 30 fois", type: "fusions", target: 30, reward: 15 },
+  { id: "reachStar", desc: "Atteins le palier Étoile", type: "reachTier", target: 6, reward: 15 },
+  { id: "reachPlanet", desc: "Atteins le palier Planète", type: "reachTier", target: 4, reward: 8 },
+  { id: "reachBlackHole", desc: "Atteins le palier Trou noir", type: "reachTier", target: 8, reward: 20 },
+  { id: "earn5000", desc: "Gagne 5000 Stardust", type: "earnStardust", target: 5000, reward: 10 },
+  { id: "earn20000", desc: "Gagne 20000 Stardust", type: "earnStardust", target: 20000, reward: 18 },
+  { id: "unlock1", desc: "Débloque 1 case", type: "unlockCells", target: 1, reward: 8 },
+  { id: "unlock3", desc: "Débloque 3 cases", type: "unlockCells", target: 3, reward: 16 },
+  { id: "spend500", desc: "Dépense 500 Stardust", type: "spendStardust", target: 500, reward: 8 },
+  { id: "invoke5", desc: "Invoque 5 Météorites", type: "invokes", target: 5, reward: 10 },
+  { id: "tapBonus10", desc: "Récupère 10 bonus manuels", type: "tapBonuses", target: 10, reward: 8 },
+  { id: "spawnAuto5", desc: "Laisse apparaître 5 Météorites automatiques", type: "autoSpawns", target: 5, reward: 6 },
+  { id: "fuse5tier5", desc: "Fusionne jusqu'à Géante gazeuse", type: "reachTier", target: 5, reward: 12 },
+  { id: "fuse50", desc: "Fusionne 50 fois", type: "fusions", target: 50, reward: 22 },
+  { id: "fuse8", desc: "Fusionne 8 fois", type: "fusions", target: 8, reward: 6 },
+  { id: "reachGalaxy", desc: "Atteins le palier Galaxie", type: "reachTier", target: 9, reward: 25 },
+  { id: "reachNeutronStar", desc: "Atteins le palier Étoile à neutrons", type: "reachTier", target: 7, reward: 17 },
+  { id: "earn100000", desc: "Gagne 100 000 Stardust", type: "earnStardust", target: 100000, reward: 25 },
+  { id: "earn1500", desc: "Gagne 1500 Stardust", type: "earnStardust", target: 1500, reward: 6 },
+  { id: "unlock5", desc: "Débloque 5 cases", type: "unlockCells", target: 5, reward: 20 },
+  { id: "spend2000", desc: "Dépense 2000 Stardust", type: "spendStardust", target: 2000, reward: 15 },
+  { id: "invoke10", desc: "Invoque 10 Météorites", type: "invokes", target: 10, reward: 15 },
+  { id: "invoke3", desc: "Invoque 3 Météorites", type: "invokes", target: 3, reward: 6 },
+  { id: "tapBonus20", desc: "Récupère 20 bonus manuels", type: "tapBonuses", target: 20, reward: 14 },
+  { id: "tapBonus5", desc: "Récupère 5 bonus manuels", type: "tapBonuses", target: 5, reward: 5 },
+  { id: "spawnAuto10", desc: "Laisse apparaître 10 Météorites automatiques", type: "autoSpawns", target: 10, reward: 10 },
+];
+const BONUS_AD_QUEST = { id: "watchAd", desc: "Regarde une publicité", reward: 15 };
+
+// ---- Achievements (permanent, never reset) ----
+const ACHIEVEMENTS = [
+  { id: "fuse_10", cat: "fusions", target: 10, name: "Premières fusions", reward: 10 },
+  { id: "fuse_100", cat: "fusions", target: 100, name: "Artisan cosmique", reward: 25 },
+  { id: "fuse_500", cat: "fusions", target: 500, name: "Maître fusionneur", reward: 60 },
+  { id: "fuse_2000", cat: "fusions", target: 2000, name: "Légende de la fusion", reward: 150 },
+  { id: "tier_4", cat: "maxTier", target: 4, name: "Formation planétaire", reward: 10 },
+  { id: "tier_6", cat: "maxTier", target: 6, name: "Naissance d'une étoile", reward: 20 },
+  { id: "tier_8", cat: "maxTier", target: 8, name: "Horizon des événements", reward: 40 },
+  { id: "tier_9", cat: "maxTier", target: 9, name: "Voie lactée", reward: 70 },
+  { id: "tier_10", cat: "maxTier", target: 10, name: "Créateur d'univers", reward: 120 },
+  { id: "bigbang_1", cat: "bigBangs", target: 1, name: "Premier Big Bang", reward: 30 },
+  { id: "bigbang_5", cat: "bigBangs", target: 5, name: "Cycle cosmique", reward: 80 },
+  { id: "bigbang_20", cat: "bigBangs", target: 20, name: "Éternel recommencement", reward: 200 },
+  { id: "lifetime_10k", cat: "lifetimeStardust", target: 10000, name: "Petit collectionneur", reward: 10 },
+  { id: "lifetime_100k", cat: "lifetimeStardust", target: 100000, name: "Riche en poussière d'étoiles", reward: 30 },
+  { id: "lifetime_1m", cat: "lifetimeStardust", target: 1000000, name: "Millionnaire stellaire", reward: 70 },
+  { id: "lifetime_100m", cat: "lifetimeStardust", target: 100000000, name: "Magnat de la galaxie", reward: 180 },
+  { id: "streak_3", cat: "streak", target: 3, name: "Habitué·e", reward: 10 },
+  { id: "streak_7", cat: "streak", target: 7, name: "Semaine complète", reward: 25 },
+  { id: "streak_30", cat: "streak", target: 30, name: "Fidèle des étoiles", reward: 100 },
+  { id: "quests_10", cat: "questsCompleted", target: 10, name: "Chasseur de quêtes", reward: 15 },
+  { id: "quests_100", cat: "questsCompleted", target: 100, name: "Expert en missions", reward: 60 },
+  { id: "unlocked_20", cat: "cellsUnlocked", target: 20, name: "Grande expansion", reward: 25 },
+  { id: "unlocked_all", cat: "cellsUnlocked", target: 30, name: "Grille complète", reward: 50 },
+  { id: "gems_1000", cat: "lifetimeGems", target: 1000, name: "Trésor de Gems", reward: 20 },
+];
+
+// ---- Shop catalog (soft currency: stardust / gems) ----
+const SHOP_GEM_ITEMS = [
+  { id: "skipCell", name: "Sauter une case", desc: "Débloque instantanément n'importe quelle case verrouillée", cost: 25 },
+  { id: "fusionExpress", name: "Fusion Express", desc: "Fusionne automatiquement toutes les paires possibles", cost: 15 },
+  { id: "streakFreeze", name: "Gel de série", desc: "Protège ta série de connexion pendant 1 jour manqué", cost: 20 },
+  { id: "cosmicBox", name: "Boîte Cosmique", desc: "Un Dieu au hasard (les Dieux rares sont plus rares) - un doublon se change en Gems", cost: 120 },
+];
+
+// Cosmic Box odds: Commun is the most likely roll, Légendaire the rarest.
+// Rolling a god you already have converts to Gems instead (scaled by the
+// rarity rolled, so bad luck still feels worth something).
+const BOX_RARITY_WEIGHTS = { commun: 50, rare: 30, epique: 15, legendaire: 5 };
+const BOX_DUPLICATE_GEMS = { commun: 10, rare: 20, epique: 40, legendaire: 80 };
+
+// ---- IAP catalog (simulated at this stage) ----
+const IAP_CATALOG = [
+  { id: "remove_ads", type: "nonconsumable", name: "Suppression des pubs", price: "3,99 $", desc: "Retire toutes les publicités définitivement." },
+  { id: "starter_pack", type: "nonconsumable", name: "Pack de démarrage", price: "1,99 $", desc: "500 Gems + 3 cases + boost 1h.", startersOnly: true },
+  { id: "gems_small", type: "consumable", name: "100 Gems", price: "0,99 $", amount: 100 },
+  { id: "gems_medium", type: "consumable", name: "550 Gems (+10%)", price: "4,99 $", amount: 550 },
+  { id: "gems_large", type: "consumable", name: "1200 Gems (+20%)", price: "9,99 $", amount: 1200 },
+  { id: "gems_mega", type: "consumable", name: "3000 Gems (+35%)", price: "19,99 $", amount: 3000 },
+  { id: "vip_monthly", type: "subscription", name: "Pass Supernova", price: "6,99 $/mois", desc: "Sans pubs, +50% production, skins exclusifs, plafond hors-ligne x2." },
+  { id: "skin_pack_violet", type: "nonconsumable", name: "Pack skin Nébuleuse violette", price: "1,99 $", skinId: "violet" },
+  { id: "skin_pack_green", type: "nonconsumable", name: "Pack skin Aurore verte", price: "1,99 $", skinId: "green" },
+  { id: "skin_pack_red", type: "nonconsumable", name: "Pack skin Supernova rouge", price: "1,99 $", skinId: "red" },
+];
+
+// ---- Formulas ----
+function tierProd(tier) { return 0.5 * Math.pow(2, tier - 1); }
+function unlockCost(n) { return Math.round(50 * Math.pow(1.5, n)); }
+function invokeCost(k) { return Math.round(15 * Math.pow(1.12, k)); }
+
+function bigBangGain(stardustEarnedThisRun, maxTierReached) {
+  const base = Math.floor(Math.sqrt(stardustEarnedThisRun / 500000));
+  const bonus = Math.max(0, (maxTierReached - 5) * 3);
+  return Math.max(1, base + bonus);
+}
+
+function formatNumber(n) {
+  const sign = n < 0 ? "-" : "";
+  n = Math.abs(n);
+  if (n < 1000) return sign + Math.floor(n).toString();
+  const units = ["K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "De"];
+  let u = -1, num = n;
+  while (num >= 1000 && u < units.length - 1) { num /= 1000; u++; }
+  const digits = num < 10 ? 2 : (num < 100 ? 1 : 0);
+  return sign + num.toFixed(digits) + units[u];
+}
+
+function formatDuration(ms) {
+  if (ms <= 0) return "0s";
+  const s = Math.ceil(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+
+function rowOf(i) { return Math.floor(i / COLS); }
+function colOf(i) { return i % COLS; }
+function areAdjacent(a, b) {
+  const ra = rowOf(a), ca = colOf(a), rb = rowOf(b), cb = colOf(b);
+  return (ra === rb && Math.abs(ca - cb) === 1) || (ca === cb && Math.abs(ra - rb) === 1);
+}
