@@ -1,4 +1,4 @@
-// Cosmerge - all rendering: grid, header, panels, modals, toasts, tutorial
+// Godspark - all rendering: grid, header, panels, modals, toasts, tutorial
 "use strict";
 
 const $ = (id) => document.getElementById(id);
@@ -42,7 +42,17 @@ function buildGridDom() {
   }
 }
 
+// Ambient/themed skins used to be applied as a CSS hue-rotate() filter on top
+// of each tier's own gradient - which shifts every tile's ALREADY-different
+// base hue (grey, blue, yellow, purple...) by the same amount, landing on a
+// different resulting color per tier instead of the skin's actual color.
+// That's what made some cells "not in the color at all". Skins other than
+// default now just paint their own fixed gradient directly, uniformly.
 function tierStyle(tier) {
+  const skin = equippedSkinDef();
+  if (skin.id !== "default" && skin.colors) {
+    return `background:radial-gradient(circle at 35% 30%, ${skin.colors[0]}, ${skin.colors[1]});`;
+  }
   const t = TIERS[tier - 1];
   return `background:radial-gradient(circle at 35% 30%, ${t.from}, ${t.to});`;
 }
@@ -136,9 +146,6 @@ function updateHeader() {
   if (costStr !== lastHeaderRender.cost) { dom.invokeCost.textContent = costStr; lastHeaderRender.cost = costStr; }
   const disabled = state.stardust < cost;
   if (disabled !== lastHeaderRender.disabled) { dom.invokeBtn.classList.toggle("disabled", disabled); lastHeaderRender.disabled = disabled; }
-  const gemsDisabled = state.gems < GEMS_INVOKE_COST;
-  if (gemsDisabled !== lastHeaderRender.gemsDisabled) { $("invokeGemsBtn").classList.toggle("disabled", gemsDisabled); lastHeaderRender.gemsDisabled = gemsDisabled; }
-  if (!lastHeaderRender.gemsCostSet) { $("invokeGemsBtn").textContent = `💎 ${GEMS_INVOKE_COST}`; lastHeaderRender.gemsCostSet = true; }
 
   const canBB = hasUniverseTile(state);
   if (canBB !== lastHeaderRender.canBB) { dom.bigBangBtn.classList.toggle("hidden", !canBB); lastHeaderRender.canBB = canBB; }
@@ -158,6 +165,7 @@ function updateFabs() {
   // your streak/freeze status between claims - it stays visible and just
   // switches to a "streak" readout (still opens the same modal, read-only).
   const claimedToday = !isDailyLoginAvailable(state);
+  dom.fabDailyLogin.classList.remove("hidden"); // always visible now (see comment above) - the initial HTML still starts with "hidden" for the pre-JS flash, nothing else ever cleared it
   dom.fabDailyLogin.querySelector(".fabIcon").textContent = claimedToday ? "🔥" : "🎁";
   dom.fabDailyLogin.querySelector(".fabLabel").textContent = claimedToday ? `Série ${state.dailyLogin.streak}` : "Cadeau";
   ensureDailySpin(state);
@@ -553,7 +561,8 @@ function renderGodsPanel() {
     tile.innerHTML = `
       ${equipped ? '<span class="godTileBadge">✓</span>' : (queued ? '<span class="godTileBadge queued">⏳</span>' : "")}
       <div class="godTileEmoji">${unlocked ? god.emoji : "❓"}</div>
-      <div class="godTileName">${unlocked ? god.name : "???"}</div>`;
+      <div class="godTileName">${unlocked ? god.name : "???"}</div>
+      <div class="godTileTitle">${unlocked ? god.title : rarity.label}</div>`;
     tile.addEventListener("click", () => openGodDetailModal(god.id));
     grid.appendChild(tile);
   });
@@ -774,7 +783,7 @@ function renderSettingsPanel() {
   support.href = "mailto:support@cosmerge.example"; support.style.textDecoration = "none"; support.style.justifyContent = "center";
   dom.panelBody.appendChild(support);
 
-  dom.panelBody.appendChild(el("p", "desc", "Cosmerge — v1.0.0 (prototype)"));
+  dom.panelBody.appendChild(el("p", "desc", "Godspark — v1.0.0 (prototype)"));
 }
 
 // ---------------- Tutorial ----------------
@@ -888,6 +897,72 @@ function openStardustInfoModal() {
   $("stardustInfoModal").classList.remove("hidden");
 }
 function closeStardustInfoModal() { $("stardustInfoModal").classList.add("hidden"); }
+
+// ---------------- Invoke choice (tapping the main Invoquer button) ----------------
+function openInvokeChoiceModal() {
+  const state = Game.state;
+  const stardustCost = invokeCost(state.manualSpawnCount);
+  $("invokeChoiceStardustCost").textContent = formatNumber(stardustCost);
+  $("invokeChoiceStardust").disabled = state.stardust < stardustCost;
+  $("invokeChoiceGems").disabled = state.gems < GEMS_INVOKE_COST;
+  $("invokeChoiceGems").textContent = `💎 ${GEMS_INVOKE_COST} Gems`;
+  $("invokeChoiceModal").classList.remove("hidden");
+}
+function closeInvokeChoiceModal() { $("invokeChoiceModal").classList.add("hidden"); }
+
+// ---------------- Cosmic Box reveal ----------------
+// Buying a Cosmic Box used to just show a toast - easy to miss, and gave the
+// Gems spent no sense of occasion. This spins briefly then reveals the god
+// (or, for a duplicate, the Gems it converted into) with its own beat.
+function openCosmicBoxRevealModal(box) {
+  const anim = $("cosmicBoxAnim");
+  $("cosmicBoxTitle").textContent = "Ouverture...";
+  $("cosmicBoxText").textContent = "";
+  anim.className = "cosmicBoxAnim spinning";
+  anim.textContent = "📦";
+  anim.style.removeProperty("--rarity-color");
+  $("cosmicBoxClose").classList.add("hidden");
+  $("cosmicBoxModal").classList.remove("hidden");
+  setTimeout(() => {
+    const rarity = RARITY[box.god.rarity];
+    anim.className = "cosmicBoxAnim revealed";
+    anim.style.setProperty("--rarity-color", rarity.color);
+    anim.textContent = box.god.emoji;
+    if (box.duplicate) {
+      $("cosmicBoxTitle").textContent = `${box.god.name} (déjà possédé)`;
+      $("cosmicBoxText").textContent = `Doublon converti en +${box.gems} 💎`;
+    } else {
+      $("cosmicBoxTitle").textContent = `✨ Nouveau Dieu : ${box.god.name} !`;
+      $("cosmicBoxText").textContent = `${rarity.label} - ${box.god.title}`;
+    }
+    Sfx.chest();
+    $("cosmicBoxClose").classList.remove("hidden");
+  }, 900);
+}
+function closeCosmicBoxModal() { $("cosmicBoxModal").classList.add("hidden"); }
+
+// ---------------- Skin manager (home screen, tap outside to close) ----------------
+function openSkinManagerModal() {
+  const state = Game.state;
+  const list = $("skinManagerList");
+  list.innerHTML = "";
+  SKINS.forEach(skin => {
+    const owned = isSkinOwned(state, skin.id);
+    const equipped = state.equippedSkin === skin.id;
+    const row = el("div", "skinManagerRow");
+    const swatch = el("div", "skinSwatch small");
+    if (skin.colors) swatch.style.background = `radial-gradient(circle at 35% 30%, ${skin.colors[0]}, ${skin.colors[1]})`;
+    if (skin.tierSkin) swatch.textContent = skin.tierSkin[5].emoji;
+    const info = el("div", "skinManagerInfo", `<div class="skinManagerName">${skin.name}</div>`);
+    const btn = el("button", "btn" + (equipped ? "" : " primary"), equipped ? "Équipé" : (owned ? "Équiper" : `${skin.cost} 💎`));
+    btn.disabled = equipped || (!owned && state.gems < skin.cost);
+    btn.addEventListener("click", () => { onSkinAction(skin.id, owned); openSkinManagerModal(); });
+    row.appendChild(swatch); row.appendChild(info); row.appendChild(btn);
+    list.appendChild(row);
+  });
+  $("skinManagerModal").classList.remove("hidden");
+}
+function closeSkinManagerModal() { $("skinManagerModal").classList.add("hidden"); }
 
 // ---------------- Gems quick menu (tapping the Gems pill) ----------------
 function openGemsMenuModal() { $("gemsMenuModal").classList.remove("hidden"); }

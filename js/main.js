@@ -1,4 +1,4 @@
-// Cosmerge - boot sequence & main loop
+// Godspark - boot sequence & main loop
 "use strict";
 
 // This page is normally embedded cross-origin (the Claude Artifact iframe,

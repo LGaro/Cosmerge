@@ -1,4 +1,4 @@
-// Cosmerge - configuration & pure formulas (no state, no DOM)
+// Godspark - configuration & pure formulas (no state, no DOM)
 "use strict";
 
 const COLS = 6, ROWS = 5, TOTAL = COLS * ROWS;
@@ -192,7 +192,7 @@ const GODS = [
     effects: { tierProdBonus: { minTier: 8, maxTier: 10, mult: 1.4 } },
     unlock: {
       type: "shop", cost: 800,
-      altCheck: (s) => s.gods.morgorathChallengeCleared, altLabel: "ou atteins l'Univers sans Fusion Express dans la partie",
+      altCheck: (s) => s.gods.morgorathChallengeCleared, altLabel: "ou atteins l'Univers sans utiliser Sauter une case ni Échanger deux cases dans la partie",
     },
     lore: "Morgorath ne crée rien - il concentre. Chaque étoile qu'il engloutit devient un peu plus dense, un peu plus lourde, jusqu'à ce que la lumière elle-même n'ose plus s'en échapper.",
   },
@@ -334,7 +334,6 @@ const ACHIEVEMENTS = [
 // ---- Shop catalog (soft currency: stardust / gems) ----
 const SHOP_GEM_ITEMS = [
   { id: "skipCell", name: "Sauter une case", desc: "Débloque instantanément n'importe quelle case verrouillée", cost: 25 },
-  { id: "fusionExpress", name: "Fusion Express", desc: "Fusionne automatiquement toutes les paires adjacentes déjà identiques (ne déplace pas les cases - utile après une invocation, pas pour débloquer une grille sans paire adjacente)", cost: 15 },
   { id: "swapCells", name: "Échanger deux cases", desc: "Permute le contenu de deux cases au choix - le moyen de créer une fusion quand aucune paire adjacente n'existe", cost: 40 },
   { id: "streakFreeze", name: "Gel de série", desc: "Protège ta série de connexion pendant 1 jour manqué", cost: 20 },
   { id: "cosmicBox", name: "Boîte Cosmique", desc: "Un Dieu au hasard (les Dieux rares sont plus rares) - un doublon se change en Gems", cost: 120 },

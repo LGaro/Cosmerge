@@ -54,7 +54,6 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
 .iconBtn:active{transform:scale(.92);}
 
 .toolbar{display:flex;align-items:center;gap:8px;margin-bottom:8px;min-height:40px;flex-wrap:wrap;}
-.btn.gemInvoke{flex:0 0 auto;padding:10px 12px;background:linear-gradient(180deg,#1a3a4a,#0d2530);border:1px solid #22d3ee55;color:var(--gems);font-weight:800;}
 .btn{appearance:none;border:1px solid #322a5e;border-radius:12px;padding:10px 14px;font-size:14px;font-weight:700;
   color:var(--text);background:linear-gradient(180deg,#2a2452,#201a42);display:flex;align-items:center;gap:6px;
   box-shadow:0 2px 8px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.05);
@@ -114,6 +113,12 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
 .fab:active{transform:scale(.95);}
 .fabIcon{font-size:17px;line-height:1;}
 .fabLabel{white-space:nowrap;}
+/* These two labels alternate between a fixed string ("Boost x2", "+8 Gems")
+   and a countdown ("5s" vs "12s" vs "1m 30s") - without a stable width, the
+   fab's own width changes every tick, which in a flex-wrap row can bump it
+   to a different line each time the digit count changes (the "ça bouge,
+   deuxième ligne, troisième ligne" bug). */
+#fabBoostLabel,#fabGemsAdLabel{display:inline-block;min-width:52px;text-align:center;font-variant-numeric:tabular-nums;}
 .fab.ready{border-color:var(--accent2);box-shadow:0 0 0 2px #22d3ee44, 0 3px 10px rgba(0,0,0,.35);animation:fabPulse 1.6s ease-in-out infinite;}
 @keyframes fabPulse{0%,100%{box-shadow:0 0 0 2px #22d3ee44, 0 3px 10px rgba(0,0,0,.35)}50%{box-shadow:0 0 0 4px #22d3ee66, 0 3px 10px rgba(0,0,0,.35)}}
 .fab.active{border-color:var(--stardust);background:linear-gradient(180deg,#3a2a0d,#241f52);}
@@ -200,6 +205,24 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
   display:flex;align-items:center;justify-content:center;font-size:20px;}
 .skinCardInfo{flex:1;min-width:0;}
 .vipCard{border-color:var(--stardust);box-shadow:0 0 0 1px var(--stardust) inset, 0 0 16px #f7b73333;}
+
+.cosmicBoxCard{text-align:center;}
+.cosmicBoxAnim{font-size:52px;line-height:1;margin:10px auto 16px;width:88px;height:88px;
+  display:flex;align-items:center;justify-content:center;border-radius:20px;
+  background:radial-gradient(circle at 35% 30%, #2a2450, #14102a);border:2px solid #3a3070;}
+.cosmicBoxAnim.spinning{animation:cosmicBoxSpin .6s ease-in-out infinite;}
+@keyframes cosmicBoxSpin{0%,100%{transform:scale(1) rotate(0deg);}50%{transform:scale(1.12) rotate(8deg);}}
+.cosmicBoxAnim.revealed{border-color:var(--rarity-color, var(--accent2));
+  box-shadow:0 0 0 2px var(--rarity-color, var(--accent2)) inset, 0 0 20px var(--rarity-color, var(--accent2));
+  animation:cosmicBoxReveal .4s ease-out;}
+@keyframes cosmicBoxReveal{0%{transform:scale(.4);opacity:0;}70%{transform:scale(1.15);}100%{transform:scale(1);opacity:1;}}
+
+.skinManagerList{display:flex;flex-direction:column;gap:8px;margin-top:10px;max-height:60vh;overflow-y:auto;}
+.skinManagerRow{display:flex;align-items:center;gap:10px;padding:8px;background:var(--bg-card);border:1px solid #2a2450;border-radius:12px;}
+.skinSwatch.small{width:34px;height:34px;font-size:16px;flex-shrink:0;}
+.skinManagerInfo{flex:1;min-width:0;}
+.skinManagerName{font-size:13px;font-weight:700;}
+.skinManagerRow .btn{flex-shrink:0;padding:8px 12px;font-size:12px;width:auto;}
 .storyCard{position:relative;background:linear-gradient(160deg,#1a1640,#141130);border-color:#3a3070;}
 .storyCard h3{font-size:14px;color:#e8e4ff;}
 .storyCard.locked{opacity:.5;}
@@ -234,7 +257,7 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
 
 /* Modals (offline / daily login / wheel / big bang / tutorial) */
 .modalOverlay,.tutOverlay{position:fixed;inset:0;background:rgba(3,2,10,.82);z-index:100;display:flex;
-  align-items:flex-end;justify-content:center;padding:16px calc(16px + var(--safe-bottom)) calc(24px + var(--safe-bottom));}
+  align-items:center;justify-content:center;padding:16px calc(16px + var(--safe-bottom)) calc(16px + var(--safe-bottom));}
 .modalCard,.tutCard{background:var(--bg-panel);border:1px solid #3a3070;border-radius:16px;padding:18px;max-width:420px;width:100%;
   box-shadow:0 10px 40px rgba(0,0,0,.5);max-height:80vh;overflow-y:auto;}
 .modalCard h3,.tutCard h3{margin:0 0 8px;font-size:17px;color:var(--accent2);}
@@ -284,9 +307,6 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
 
 .iapPrice{font-weight:700;color:var(--stardust);}
 
-.grid.skin-violet .tile{filter:hue-rotate(200deg) saturate(1.4);}
-.grid.skin-green .tile{filter:hue-rotate(90deg) saturate(1.3);}
-.grid.skin-red .tile{filter:hue-rotate(-35deg) saturate(1.5) brightness(1.05);}
 
 .cell.skipArmed{outline:2px dashed var(--gems);outline-offset:-2px;}
 
@@ -296,14 +316,15 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
    godTagsCol/godDesc below (those rules are no longer scoped under .godCard
    since that wrapper doesn't exist in the DOM anymore). */
 .godsGrid{display:grid;grid-template-columns:repeat(4, 1fr);gap:8px;}
-.godTile{position:relative;aspect-ratio:1;background:var(--bg-card);border:2px solid var(--rarity-color, #2a2450);
-  border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+.godTile{position:relative;aspect-ratio:.82;background:var(--bg-card);border:2px solid var(--rarity-color, #2a2450);
+  border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
   appearance:none;color:var(--text);padding:6px;overflow:hidden;}
 .godTile:active{transform:scale(.95);}
 .godTile.locked{opacity:.5;border-color:#2a2450;}
 .godTile.equipped{box-shadow:0 0 0 1px var(--accent2) inset, 0 0 14px #22d3ee44;}
-.godTileEmoji{font-size:26px;line-height:1;}
-.godTileName{font-size:10px;font-weight:700;text-align:center;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+.godTileEmoji{font-size:30px;line-height:1;}
+.godTileName{font-size:11px;font-weight:700;text-align:center;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+.godTileTitle{font-size:9px;color:var(--text-dim);text-align:center;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
 .godTileBadge{position:absolute;top:4px;right:4px;font-size:11px;background:#0d2a30;color:var(--accent2);
   width:16px;height:16px;border-radius:5px;display:flex;align-items:center;justify-content:center;}
 .godTileBadge.queued{background:#3a2a0d;color:var(--stardust);}

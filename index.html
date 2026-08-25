@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Cosmerge</title>
+<title>Godspark</title>
 <meta name="description" content="Fusionnez des astéroïdes en lunes, planètes et étoiles, produisez du Stardust en continu, puis déclenchez un Big Bang pour recommencer plus fort.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Cosmerge">
+<meta property="og:title" content="Godspark">
 <meta property="og:description" content="Fusionnez, produisez, explosez, recommencez plus fort. Un jeu de fusion cosmique idle avec prestige.">
 <meta property="og:image" content="social-share.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Cosmerge">
+<meta name="twitter:title" content="Godspark">
 <meta name="twitter:description" content="Fusionnez, produisez, explosez, recommencez plus fort.">
 <meta name="twitter:image" content="social-share.png">
 <!-- og:image/twitter:image must be an ABSOLUTE URL (https://votre-domaine/social-share.png)
      once this is deployed to a real host - relative paths don't work for link-preview crawlers
      (WhatsApp, iMessage, etc). The source image is generated in assets/social-share-source.html. -->
-<link rel="stylesheet" href="css/style.css?v=16">
+<link rel="stylesheet" href="css/style.css?v=17">
 </head>
 <body>
 <div id="starsBg"></div>
@@ -48,6 +48,7 @@
     <button class="fab" id="fabUnlockCellAd"><span class="fabIcon">🔓</span><span class="fabLabel">Case gratuite</span></button>
     <button class="fab featured" id="fabBoost"><span class="fabIcon">🚀</span><span class="fabLabel" id="fabBoostLabel">Boost x2</span></button>
     <button class="fab featured" id="fabGemsAd"><span class="fabIcon">💎</span><span class="fabLabel" id="fabGemsAdLabel">Pub</span></button>
+    <button class="fab muted" id="fabSkins" aria-label="Gérer les skins"><span class="fabIcon">🎨</span></button>
     <button class="fab muted" id="fabRestart" aria-label="Recommencer la partie"><span class="fabIcon">🔄</span></button>
   </div>
 
@@ -55,7 +56,6 @@
     <button class="btn primary" id="invokeBtn">
       <span>Invoquer</span><span class="cost" id="invokeCost">15</span>✨
     </button>
-    <button class="btn gemInvoke" id="invokeGemsBtn" aria-label="Invoquer avec des Gems">💎 3</button>
     <button class="btn bigbang hidden" id="bigBangBtn">💥 Big Bang</button>
     <div class="hint" id="selectionHint"></div>
   </div>
@@ -203,6 +203,36 @@
   </div>
 </div>
 
+<!-- Invoke choice: tapping the main Invoquer button offers Stardust or Gems -->
+<div class="modalOverlay hidden" id="invokeChoiceModal">
+  <div class="modalCard">
+    <h3>Invoquer un Météorite</h3>
+    <div class="modalBtns" style="flex-direction:column;">
+      <button class="btn primary full" id="invokeChoiceStardust">✨ <span id="invokeChoiceStardustCost">15</span> Stardust</button>
+      <button class="btn full" id="invokeChoiceGems" style="margin-top:8px;">💎 3 Gems</button>
+    </div>
+    <button class="btn ghost full" id="invokeChoiceClose" style="margin-top:8px;">Annuler</button>
+  </div>
+</div>
+
+<!-- Cosmic Box reveal: a spin-then-reveal animation instead of just a toast -->
+<div class="modalOverlay hidden" id="cosmicBoxModal">
+  <div class="modalCard cosmicBoxCard">
+    <div class="cosmicBoxAnim" id="cosmicBoxAnim">📦</div>
+    <h3 id="cosmicBoxTitle">Ouverture...</h3>
+    <p class="desc" id="cosmicBoxText"></p>
+    <button class="btn primary full hidden" id="cosmicBoxClose">Continuer</button>
+  </div>
+</div>
+
+<!-- Skin manager: compact popup reachable from the home screen, closable by tapping outside -->
+<div class="modalOverlay hidden" id="skinManagerModal">
+  <div class="modalCard">
+    <div class="rowBetween"><h3>🎨 Skins</h3><button class="iconBtn" id="skinManagerClose">✕</button></div>
+    <div id="skinManagerList" class="skinManagerList"></div>
+  </div>
+</div>
+
 <!-- Gems quick menu: tapping the Gems pill offers the two things Gems are for -->
 <div class="modalOverlay hidden" id="gemsMenuModal">
   <div class="modalCard">
@@ -271,15 +301,15 @@
   </div>
 </div>
 
-<script src="js/config.js?v=16"></script>
-<script src="js/state.js?v=16"></script>
-<script src="js/audio.js?v=16"></script>
-<script src="js/services.js?v=16"></script>
-<script src="js/economy.js?v=16"></script>
-<script src="js/gods.js?v=16"></script>
-<script src="js/retention.js?v=16"></script>
-<script src="js/ui.js?v=16"></script>
-<script src="js/input.js?v=16"></script>
-<script src="js/main.js?v=16"></script>
+<script src="js/config.js?v=17"></script>
+<script src="js/state.js?v=17"></script>
+<script src="js/audio.js?v=17"></script>
+<script src="js/services.js?v=17"></script>
+<script src="js/economy.js?v=17"></script>
+<script src="js/gods.js?v=17"></script>
+<script src="js/retention.js?v=17"></script>
+<script src="js/ui.js?v=17"></script>
+<script src="js/input.js?v=17"></script>
+<script src="js/main.js?v=17"></script>
 </body>
 </html>

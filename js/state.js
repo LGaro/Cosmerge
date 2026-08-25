@@ -1,4 +1,4 @@
-// Cosmerge - game state: defaults, load/save, migrations, daily helpers
+// Godspark - game state: defaults, load/save, migrations, daily helpers
 "use strict";
 
 function todayStr(d) {
@@ -83,7 +83,7 @@ function defaultState() {
       currentGodId: null,
       nextGodId: null,
       erebusStreak: 0,             // fusions since the last manual tap bonus (Erebus challenge)
-      usedFusionExpressThisRun: false, // Morgorath challenge requires never using it
+      usedShortcutThisRun: false, // Morgorath challenge requires never using a gem-shop grid shortcut (Sauter une case / Échanger deux cases)
       morgorathChallengeCleared: false,
       usageCount: {}, // { godId: number of Big Bangs completed with that god equipped } - informational only
       powerLevel: {}, // { godId: purchased power level, see godPowerCost() } - actually scales that god's effect

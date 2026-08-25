@@ -1,4 +1,4 @@
-// Cosmerge - native bridge (Capacitor build only).
+// Godspark - native bridge (Capacitor build only).
 //
 // This file is the ONLY module-type script in index.html; every other game
 // file stays plain <script> (global functions, zero build step) so the web
@@ -148,13 +148,13 @@ async function bootNative() {
       notifications: [
         {
           id: 1001,
-          title: "Cosmerge",
+          title: "Godspark",
           body: "Vos planètes ont produit du Stardust, venez récupérer !",
           schedule: { at: new Date(Date.now() + 4 * 3600 * 1000) },
         },
         {
           id: 1002,
-          title: "Cosmerge",
+          title: "Godspark",
           body: "Ne perdez pas votre série de connexion quotidienne !",
           schedule: { at: new Date(Date.now() + 20 * 3600 * 1000) },
         },

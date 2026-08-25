@@ -1,4 +1,4 @@
-// Cosmerge - pointer input (drag/tap merge) + all button/action handlers
+// Godspark - pointer input (drag/tap merge) + all button/action handlers
 "use strict";
 
 function localPos(e) {
@@ -545,15 +545,8 @@ function onBuyGemItem(itemId) {
   const result = buyGemShopItem(Game.state, itemId);
   if (!result.ok) { Sfx.error(); toast("Pas assez de Gems."); return; }
   Sfx.purchase();
-  if (itemId === "fusionExpress") {
-    const merges = result.merges || [];
-    renderAll(); // fusions already resolved in state; refresh every cell (sources emptied + destinations upgraded)
-    merges.forEach(e => spawnParticles(e.toIdx));
-    toast(merges.length > 0 ? `Fusion Express : ${merges.length} fusion(s) !` : "Aucune fusion possible pour l'instant.");
-  } else if (itemId === "cosmicBox") {
-    const box = result.box;
-    if (box.duplicate) toast(`Déjà possédé : ${box.god.name} → +${box.gems} 💎`);
-    else toast(`✨ Nouveau Dieu : ${box.god.name} ${box.god.emoji} !`);
+  if (itemId === "cosmicBox") {
+    openCosmicBoxRevealModal(result.box);
   } else {
     toast("Achat effectué !");
   }
@@ -688,7 +681,7 @@ async function onBonusAdQuest() {
 // site. Buttons that already play their own distinct sound synchronously on
 // click (Invoquer, Big Bang confirm) either stop propagation or are excluded
 // by id below, so this never doubles up with them.
-const SILENT_CLICK_IDS = new Set(["bigBangConfirm", "invokeBtn"]);
+const SILENT_CLICK_IDS = new Set(["bigBangConfirm", "invokeChoiceStardust", "invokeChoiceGems"]);
 function wireClickSound() {
   document.addEventListener("click", (e) => {
     const el = e.target.closest(".btn, .drawerItem, .iconBtn, .fab, .switch, .tabBtn");
@@ -697,13 +690,27 @@ function wireClickSound() {
   });
 }
 
+// Tapping the dark backdrop closes whichever modal is open, same as its own
+// close/cancel button - except the first-god ritual, which is a mandatory
+// one-time choice with no close button at all by design.
+function wireModalBackdropClose() {
+  document.addEventListener("click", (e) => {
+    if (e.target.classList.contains("modalOverlay") && e.target.id !== "godRitualModal") {
+      e.target.classList.add("hidden");
+    }
+  });
+}
+
 function wireEvents() {
   wireClickSound();
+  wireModalBackdropClose();
   document.addEventListener("pointerdown", onPointerDown, { passive: false });
   document.addEventListener("touchstart", onPointerDown, { passive: false });
 
-  dom.invokeBtn.addEventListener("click", () => { ensureAudio(); doInvoke(); });
-  $("invokeGemsBtn").addEventListener("click", () => { ensureAudio(); doInvokeWithGems(); });
+  dom.invokeBtn.addEventListener("click", () => { ensureAudio(); openInvokeChoiceModal(); });
+  $("invokeChoiceStardust").addEventListener("click", () => { doInvoke(); closeInvokeChoiceModal(); });
+  $("invokeChoiceGems").addEventListener("click", () => { doInvokeWithGems(); closeInvokeChoiceModal(); });
+  $("invokeChoiceClose").addEventListener("click", closeInvokeChoiceModal);
   dom.bigBangBtn.addEventListener("click", () => openBigBangModal());
   dom.menuBtn.addEventListener("click", () => openDrawer());
   dom.drawerClose.addEventListener("click", closeDrawer);
@@ -723,6 +730,9 @@ function wireEvents() {
   $("fabCurrentGod").addEventListener("click", () => openPanel("gods"));
   $("fabRestart").addEventListener("click", openRestartModal);
   $("fabGemsAd").addEventListener("click", onWatchGemsAd);
+  $("fabSkins").addEventListener("click", openSkinManagerModal);
+  $("skinManagerClose").addEventListener("click", closeSkinManagerModal);
+  $("cosmicBoxClose").addEventListener("click", closeCosmicBoxModal);
 
   dom.energyPill.addEventListener("click", () => openPanel("skills"));
   $("gemsPill").addEventListener("click", openGemsMenuModal);

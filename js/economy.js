@@ -1,4 +1,4 @@
-// Cosmerge - prestige (Big Bang), permanent skill tree, shop logic
+// Godspark - prestige (Big Bang), permanent skill tree, shop logic
 "use strict";
 
 function hasUniverseTile(state) {
@@ -47,7 +47,7 @@ function restartRun(state) {
   }
   state.moonMergesThisRun = 0;
   state.gods.erebusStreak = 0;
-  state.gods.usedFusionExpressThisRun = false;
+  state.gods.usedShortcutThisRun = false;
 
   const seeded = freshGrid(state);
   state.grid = seeded.grid;
@@ -82,13 +82,8 @@ function buyGemShopItem(state, itemId, opts) {
     state.gems -= item.cost;
     state.unlocked[idx] = true;
     state.extraUnlockedCount += 1;
+    state.gods.usedShortcutThisRun = true;
     return { ok: true };
-  }
-  if (itemId === "fusionExpress") {
-    state.gems -= item.cost;
-    state.gods.usedFusionExpressThisRun = true;
-    const merges = resolveAllMerges(state);
-    return { ok: true, merges };
   }
   if (itemId === "swapCells") {
     const idxA = opts && opts.idxA, idxB = opts && opts.idxB;
@@ -98,6 +93,7 @@ function buyGemShopItem(state, itemId, opts) {
     const tmp = state.grid[idxA];
     state.grid[idxA] = state.grid[idxB];
     state.grid[idxB] = tmp;
+    state.gods.usedShortcutThisRun = true;
     return { ok: true, idxA, idxB };
   }
   if (itemId === "streakFreeze") {
@@ -113,35 +109,7 @@ function buyGemShopItem(state, itemId, opts) {
   return { ok: false, reason: "unhandled" };
 }
 
-// Repeatedly merges any adjacent equal-tier pair until none remain.
-// Returns the list of {toIdx, newTier} events so the caller can animate them.
-function resolveAllMerges(state) {
-  const events = [];
-  let changed = true;
-  let guard = 0;
-  while (changed && guard < 200) {
-    changed = false;
-    guard++;
-    for (let i = 0; i < TOTAL; i++) {
-      const a = state.grid[i];
-      if (!a || a.tier >= TIERS.length) continue;
-      const neighbours = [i + 1, i - 1, i + COLS, i - COLS].filter(j => j >= 0 && j < TOTAL && areAdjacent(i, j));
-      for (const j of neighbours) {
-        const b = state.grid[j];
-        if (b && b.tier === a.tier) {
-          const result = performMerge(state, i, j);
-          if (result) events.push({ toIdx: j, newTier: result.newTier });
-          changed = true;
-          break;
-        }
-      }
-      if (changed) break;
-    }
-  }
-  return events;
-}
-
-// Single pair merge used by tap/drag input and by Fusion Express.
+// Single pair merge used by tap/drag input.
 function performMerge(state, fromIdx, toIdx) {
   const a = state.grid[fromIdx], b = state.grid[toIdx];
   if (!a || !b || a.tier !== b.tier || a.tier >= TIERS.length) return null;

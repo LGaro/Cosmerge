@@ -1,4 +1,4 @@
-// Cosmerge - Gods of the Cosmos: unlock conditions, equipped-god effects,
+// Godspark - Gods of the Cosmos: unlock conditions, equipped-god effects,
 // the "choose your first god" ritual, and challenge tracking.
 //
 // One god is equipped per run (state.gods.currentGodId). Its `effects` are
@@ -99,8 +99,9 @@ function onFusionForGods(state, newTier) {
     if (state.gods.erebusStreak >= erebus.unlock.target) unlockGod(state, "erebus");
   }
 
-  // Morgorath challenge: reach the Universe tier without ever buying Fusion Express this run.
-  if (newTier === TIERS.length && !state.gods.usedFusionExpressThisRun) {
+  // Morgorath challenge: reach the Universe tier without ever using a
+  // grid-shortcut shop item (Sauter une case / Échanger deux cases) this run.
+  if (newTier === TIERS.length && !state.gods.usedShortcutThisRun) {
     state.gods.morgorathChallengeCleared = true;
   }
 
@@ -139,7 +140,7 @@ function applyPendingGodAtBigBang(state) {
   }
   state.moonMergesThisRun = 0;
   state.gods.erebusStreak = 0;
-  state.gods.usedFusionExpressThisRun = false;
+  state.gods.usedShortcutThisRun = false;
 }
 
 function buyGodPowerLevel(state, godId) {

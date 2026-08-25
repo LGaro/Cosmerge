@@ -1,4 +1,4 @@
-// Cosmerge - synthesized audio (Web Audio API only, zero external files)
+// Godspark - synthesized audio (Web Audio API only, zero external files)
 "use strict";
 
 let audioCtx = null;
