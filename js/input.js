@@ -409,6 +409,31 @@ async function onFreePlanet() {
   saveState(state);
 }
 
+// ---------------- Unlock cell fab (rewarded ad) ----------------
+async function onUnlockCellAd() {
+  const state = Game.state;
+  if (Date.now() < state.cooldowns.unlockCellAdUntil) {
+    toast("Disponible dans " + formatDuration(state.cooldowns.unlockCellAdUntil - Date.now()));
+    return;
+  }
+  if (unlockedCount(state) >= TOTAL) { toast("Toutes les cases sont déjà débloquées !"); return; }
+  if (!adsRemoved(state)) toast("📺 Chargement de la publicité...");
+  const ok = await watchRewardedAd(state, "unlock_cell");
+  if (!ok) return;
+  const result = grantFreeCellUnlock(state);
+  if (result.ok) {
+    renderCell(result.idx);
+    refreshLockedCellPrices();
+    Sfx.unlock();
+    toast("🔓 Case débloquée gratuitement !");
+  } else {
+    toast("Toutes les cases sont déjà débloquées !");
+  }
+  updateHeader();
+  updateFabs();
+  saveState(state);
+}
+
 // ---------------- Shop / IAP / skills / quests handlers ----------------
 async function onWatchProdBoostAd() {
   const state = Game.state;
@@ -613,6 +638,7 @@ function wireEvents() {
   dom.fabWheel.addEventListener("click", openWheelModal);
   dom.fabFreePlanet.addEventListener("click", onFreePlanet);
   $("fabBoost").addEventListener("click", onWatchProdBoostAd);
+  $("fabUnlockCellAd").addEventListener("click", onUnlockCellAd);
   $("fabCurrentGod").addEventListener("click", () => openPanel("gods"));
   $("fabRestart").addEventListener("click", openRestartModal);
 

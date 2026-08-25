@@ -175,3 +175,16 @@ function grantFreePlanet(state) {
   state.cooldowns.freePlanetUntil = Date.now() + FREE_PLANET_COOLDOWN_MS;
   return { ok: true, idx };
 }
+
+// Ad-based relief valve for unlockCost's 1.5x-per-cell growth, which is what
+// makes the last few cells of a run cost tens of thousands of Stardust.
+function grantFreeCellUnlock(state) {
+  const locked = [];
+  for (let i = 0; i < TOTAL; i++) if (!state.unlocked[i]) locked.push(i);
+  if (locked.length === 0) return { ok: false, reason: "full" };
+  const idx = locked[Math.floor(Math.random() * locked.length)];
+  state.unlocked[idx] = true;
+  state.extraUnlockedCount += 1;
+  state.cooldowns.unlockCellAdUntil = Date.now() + UNLOCK_CELL_AD_COOLDOWN_MS;
+  return { ok: true, idx };
+}

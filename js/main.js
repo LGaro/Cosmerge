@@ -116,9 +116,11 @@ function requestStorageAccessBestEffort() {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
       saveState(Game.state);
-      MusicService.stop(); // clean fade instead of the OS abruptly cutting a mid-chord (the "bizarre" click on close/background)
+      MusicService.stop(); // stop scheduling further chords/sparkles
+      muteAllAudio(); // clean fade of EVERYTHING currently sounding (SFX included) instead of the OS abruptly cutting it mid-envelope (the "bizarre"/dull click on close)
       return;
     }
+    unmuteAllAudio();
     if (Game.settings.music) MusicService.start();
     const info = computeOfflineGain(Game.state, Date.now());
     const spawned = applyOfflineAutoSpawns(Game.state, info.cappedMs);

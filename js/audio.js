@@ -2,10 +2,23 @@
 "use strict";
 
 let audioCtx = null;
+// Shared final stage EVERY sound (SFX beeps/sweeps and the music pad alike)
+// routes through, instead of connecting straight to ctx.destination. Without
+// this, muting on background only ever reached the music pad (see
+// MusicService below) - any SFX whose decay was still in flight right as the
+// app closed (e.g. the click sound from the very tap that triggered closing
+// it) had no mute point at all, which is what the residual "dull thud" on
+// close was actually coming from even after the pad-only fix.
+let masterOutGain = null;
 function ensureAudio() {
   const wasUnset = !audioCtx;
   if (!audioCtx) {
     try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { /* noop */ }
+  }
+  if (audioCtx && !masterOutGain) {
+    masterOutGain = audioCtx.createGain();
+    masterOutGain.gain.value = 1;
+    masterOutGain.connect(audioCtx.destination);
   }
   if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
   // Mobile browsers only allow audio (including our generative music) to
@@ -13,6 +26,24 @@ function ensureAudio() {
   // (Storage Access is requested separately, before boot - see main.js.)
   if (wasUnset && window.Game && Game.settings.music) MusicService.start();
   return audioCtx;
+}
+
+// Called from main.js on visibilitychange: ramps the single shared output
+// gain to 0 (covers SFX and music together) so nothing is left mid-envelope
+// at a non-zero amplitude for the OS to cut off abruptly when it tears down
+// audio for a backgrounded/closed app - that discontinuity is the click/thud.
+function muteAllAudio() {
+  if (!audioCtx || !masterOutGain) return;
+  const now = audioCtx.currentTime;
+  masterOutGain.gain.cancelScheduledValues(now);
+  masterOutGain.gain.setValueAtTime(masterOutGain.gain.value, now);
+  masterOutGain.gain.linearRampToValueAtTime(0, now + 0.04);
+}
+function unmuteAllAudio() {
+  if (!audioCtx || !masterOutGain) return;
+  const now = audioCtx.currentTime;
+  masterOutGain.gain.cancelScheduledValues(now);
+  masterOutGain.gain.setValueAtTime(1, now);
 }
 
 function beep(freq, dur, type, vol) {
@@ -25,7 +56,7 @@ function beep(freq, dur, type, vol) {
   osc.frequency.value = freq;
   gain.gain.setValueAtTime(vol || 0.08, ctx.currentTime);
   gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + (dur || 0.2));
-  osc.connect(gain); gain.connect(ctx.destination);
+  osc.connect(gain); gain.connect(masterOutGain);
   osc.start(); osc.stop(ctx.currentTime + (dur || 0.2));
 }
 
@@ -46,7 +77,7 @@ function sweep(freqFrom, freqTo, dur, type, vol) {
   osc.frequency.exponentialRampToValueAtTime(freqTo, ctx.currentTime + dur);
   gain.gain.setValueAtTime(vol || 0.08, ctx.currentTime);
   gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
-  osc.connect(gain); gain.connect(ctx.destination);
+  osc.connect(gain); gain.connect(masterOutGain);
   osc.start(); osc.stop(ctx.currentTime + dur);
 }
 
@@ -146,13 +177,7 @@ const MusicService = (function () {
       if (!masterGain) {
         masterGain = ctx.createGain();
         masterGain.gain.value = MASTER_LEVEL;
-        masterGain.connect(ctx.destination);
-      } else {
-        // Restore the level a previous stop() ramped down to 0 - without
-        // this, every restart after the app was backgrounded once would
-        // stay silent forever (new chords are children of this same gain).
-        masterGain.gain.cancelScheduledValues(ctx.currentTime);
-        masterGain.gain.setValueAtTime(MASTER_LEVEL, ctx.currentTime);
+        masterGain.connect(masterOutGain); // shared final mute point - see muteAllAudio() above
       }
       running = true;
       scheduleNext();
@@ -163,16 +188,6 @@ const MusicService = (function () {
       if (timer) clearTimeout(timer);
       if (sparkleTimer) clearTimeout(sparkleTimer);
       timer = null; sparkleTimer = null;
-      // Backgrounding/closing the app used to just leave whatever chord was
-      // mid-envelope hanging - the OS then cuts audio output abruptly at a
-      // non-zero amplitude, which is heard as a click/pop. Ramping the
-      // shared master gain to 0 first guarantees a clean silence instead.
-      if (masterGain) {
-        const ctx = masterGain.context;
-        masterGain.gain.cancelScheduledValues(ctx.currentTime);
-        masterGain.gain.setValueAtTime(masterGain.gain.value, ctx.currentTime);
-        masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.05);
-      }
     },
     setEnabled(on) { if (on) this.start(); else this.stop(); },
   };

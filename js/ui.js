@@ -148,6 +148,9 @@ function updateFabs() {
   const fpReady = Date.now() >= state.cooldowns.freePlanetUntil;
   dom.fabFreePlanet.classList.toggle("ready", fpReady);
   dom.fabFreePlanet.disabled = false;
+  const allUnlocked = unlockedCount(state) >= TOTAL;
+  $("fabUnlockCellAd").classList.toggle("hidden", allUnlocked);
+  $("fabUnlockCellAd").classList.toggle("ready", !allUnlocked && Date.now() >= state.cooldowns.unlockCellAdUntil);
   const now = Date.now();
   const boostActive = state.cooldowns.prodBoostActiveUntil > now;
   const boostReady = now >= state.cooldowns.prodBoostUntil && !boostActive;
