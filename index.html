@@ -16,7 +16,7 @@
 <!-- og:image/twitter:image must be an ABSOLUTE URL (https://votre-domaine/social-share.png)
      once this is deployed to a real host - relative paths don't work for link-preview crawlers
      (WhatsApp, iMessage, etc). The source image is generated in assets/social-share-source.html. -->
-<link rel="stylesheet" href="css/style.css?v=9">
+<link rel="stylesheet" href="css/style.css?v=10">
 </head>
 <body>
 <div id="starsBg"></div>
@@ -174,6 +174,18 @@
   </div>
 </div>
 
+<!-- Remove-ads soft prompt: shown once, the first time the player watches a 5th rewarded ad -->
+<div class="modalOverlay hidden" id="removeAdsPromptModal">
+  <div class="modalCard">
+    <h3>🚫 Marre des pubs ?</h3>
+    <p>Tu as pas mal regardé de publicités ces derniers temps. Avec « Suppression des pubs », tous ces bonus (boost, planète gratuite, quête bonus...) deviennent instantanés, pour toujours.</p>
+    <div class="modalBtns">
+      <button class="btn" id="removeAdsPromptLater">Plus tard</button>
+      <button class="btn primary" id="removeAdsPromptBuy">Suppression des pubs</button>
+    </div>
+  </div>
+</div>
+
 <!-- God ritual: first choice is mandatory, later ones are managed from the Gods panel -->
 <div class="modalOverlay hidden" id="godRitualModal">
   <div class="modalCard">
@@ -217,15 +229,15 @@
   </div>
 </div>
 
-<script src="js/config.js?v=9"></script>
-<script src="js/state.js?v=9"></script>
-<script src="js/audio.js?v=9"></script>
-<script src="js/services.js?v=9"></script>
-<script src="js/economy.js?v=9"></script>
-<script src="js/gods.js?v=9"></script>
-<script src="js/retention.js?v=9"></script>
-<script src="js/ui.js?v=9"></script>
-<script src="js/input.js?v=9"></script>
-<script src="js/main.js?v=9"></script>
+<script src="js/config.js?v=10"></script>
+<script src="js/state.js?v=10"></script>
+<script src="js/audio.js?v=10"></script>
+<script src="js/services.js?v=10"></script>
+<script src="js/economy.js?v=10"></script>
+<script src="js/gods.js?v=10"></script>
+<script src="js/retention.js?v=10"></script>
+<script src="js/ui.js?v=10"></script>
+<script src="js/input.js?v=10"></script>
+<script src="js/main.js?v=10"></script>
 </body>
 </html>

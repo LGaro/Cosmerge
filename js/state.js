@@ -59,6 +59,7 @@ function defaultState() {
       fusions: 0,
       maxTierEver: 1,
       bigBangCount: 0,
+      adsWatched: 0, // rewarded ads actually watched (excludes ones skipped via adsRemoved) - see input.js watchRewardedAd
     },
 
     skills: { prod: 0, swarm: 0, gravity: 0, echo: 0, luck: 0 },
@@ -88,11 +89,11 @@ function defaultState() {
     cooldowns: { freePlanetUntil: 0, prodBoostUntil: 0, prodBoostActiveUntil: 0 },
     dailySpin: { date: null, freeUsed: false, bonusUsed: false },
 
-    iap: { removeAds: false, vipUntil: 0, ownedSkinPacks: [] },
+    iap: { removeAds: false, vipUntil: 0, ownedSkinPacks: [], stardustBoost: false },
 
     settings: { sound: true, music: true, notifications: true },
     firstPlayedDay: todayStr(),
-    profile: { name: "Joueur", emoji: "✨", color: "#f7b733" },
+    profile: { name: "Joueur", emoji: "🧑‍🚀", color: "#f7b733" },
   };
   const seeded = freshGrid(state);
   state.grid = seeded.grid;
@@ -175,7 +176,8 @@ function productionMultiplier(state) {
   const vipMult = isVipActive(state) ? 1.5 : 1;
   const boostMult = (state.cooldowns.prodBoostActiveUntil > Date.now()) ? 2 : 1;
   const godMult = getGodEffects(state).prodMult || 1;
-  return skillMult * vipMult * boostMult * godMult;
+  const iapBoostMult = state.iap.stardustBoost ? 1.5 : 1;
+  return skillMult * vipMult * boostMult * godMult * iapBoostMult;
 }
 function tierGodMultiplier(state, tier) {
   const bonus = getGodEffects(state).tierProdBonus;

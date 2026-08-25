@@ -66,6 +66,18 @@ function applyOfflineAutoSpawns(state, cappedMs) {
   return spawned;
 }
 
+// ---- Rewarded ad tracking ----
+// Counts ads actually watched (adsRemoved players never call this - see
+// input.js watchRewardedAd) and flags the one moment a soft paywall for
+// "Suppression des pubs" should interrupt: the very first time the count
+// reaches 5, an amount high enough to mean the player is actually engaging
+// with rewarded ads rather than a one-off. Fires exactly once since a
+// strictly-increasing counter only equals 5 on one call.
+function trackRewardedAdWatched(state) {
+  state.lifetime.adsWatched += 1;
+  return state.lifetime.adsWatched === 5;
+}
+
 // ---- Daily login ----
 function isDailyLoginAvailable(state) {
   return state.dailyLogin.lastClaimDay !== todayStr();

@@ -121,7 +121,7 @@ const GODS = [
     effects: { gemsMult: 1.25, prodMult: 0.9 },
     unlock: {
       type: "challenge", challengeId: "erebus",
-      label: "Défi : enchaîne 35 fusions sans utiliser le bonus manuel (tap)",
+      label: "Défi : fusionne 35 fois d'affilée sans jamais appuyer sur une case pour récupérer son bonus (appuyer remet ce compteur à zéro)",
       target: 35,
     },
     lore: "Erebus fut banni pour avoir préféré le désordre fécond à l'ordre stérile. Le servir a un prix - moins de matière produite - mais il paie grassement en poussière précieuse ceux qui l'acceptent.",
@@ -247,7 +247,8 @@ const BOX_DUPLICATE_GEMS = { commun: 10, rare: 20, epique: 40, legendaire: 80 };
 
 // ---- IAP catalog (simulated at this stage) ----
 const IAP_CATALOG = [
-  { id: "remove_ads", type: "nonconsumable", name: "Suppression des pubs", price: "3,99 $", desc: "Retire toutes les publicités définitivement." },
+  { id: "remove_ads", type: "nonconsumable", name: "Suppression des pubs", price: "3,99 $", desc: "Retire toutes les publicités définitivement, et débloque instantanément tous les bonus normalement obtenus en pub (boost, planète gratuite, quête bonus)." },
+  { id: "stardust_boost", type: "nonconsumable", name: "Multiplicateur Stardust", price: "4,99 $", desc: "+50% de production de Stardust, en permanence, cumulable avec tous les autres bonus." },
   { id: "starter_pack", type: "nonconsumable", name: "Pack de démarrage", price: "1,99 $", desc: "500 Gems + 3 cases + boost 1h.", startersOnly: true },
   { id: "gems_small", type: "consumable", name: "100 Gems", price: "0,99 $", amount: 100 },
   { id: "gems_medium", type: "consumable", name: "550 Gems (+10%)", price: "4,99 $", amount: 550 },
@@ -300,7 +301,7 @@ function areAdjacent(a, b) {
 }
 
 // ---- Player profile (drawer header identity) ----
-const PROFILE_EMOJI_CHOICES = ["✨", "🪐", "🌙", "⭐", "☄️", "🌌", "🔥", "⚡", "🌍", "💫", "🕳️", "👑", "🦄", "🎯", "💎", "🚀"];
+const PROFILE_EMOJI_CHOICES = ["🧑‍🚀", "👩‍🚀", "👨‍🚀", "👧", "👦", "🧑", "✨", "🪐", "🌙", "⭐", "☄️", "🌌", "🔥", "⚡", "🌍", "💫", "🕳️", "👑", "🦄", "🎯", "💎", "🚀"];
 const PROFILE_COLOR_CHOICES = ["#f7b733", "#8b5cf6", "#22d3ee", "#f472b6", "#34d399", "#f87171", "#60a5fa", "#fbbf24"];
 
 // ---- God power level (per-god upgrade paid in Gems, scales that god's own effect) ----

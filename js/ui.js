@@ -290,7 +290,7 @@ function renderShopPanel() {
   boostCard.innerHTML = `<div class="rowBetween"><h3>Boost x2 production (10 min)</h3></div>
     <p class="desc">${boostActive ? `Actif encore ${formatDuration(state.cooldowns.prodBoostActiveUntil - Date.now())}` :
       (boostReady ? "Disponible maintenant." : `Disponible dans ${formatDuration(state.cooldowns.prodBoostUntil - Date.now())}`)}</p>`;
-  const boostBtn = el("button", "btn primary full", "Regarder une pub");
+  const boostBtn = el("button", "btn primary full", adsRemoved(state) ? "Activer" : "Regarder une pub");
   boostBtn.disabled = !boostReady || boostActive;
   boostBtn.addEventListener("click", onWatchProdBoostAd);
   boostCard.appendChild(boostBtn);
@@ -328,6 +328,7 @@ function renderShopPanel() {
   IAP_CATALOG.forEach(product => {
     if (product.startersOnly && daysSinceFirst > 2) return;
     if (product.id === "remove_ads" && state.iap.removeAds) return;
+    if (product.id === "stardust_boost" && state.iap.stardustBoost) return;
     if (product.skinId && state.iap.ownedSkinPacks.includes(product.skinId)) return;
     const card = el("div", "card");
     card.innerHTML = `<div class="rowBetween"><h3>${product.name}</h3><span class="iapPrice">${product.price}</span></div>
@@ -387,7 +388,7 @@ function renderQuestsPanel() {
   bonusCard.innerHTML = `<div class="rowBetween"><h3>${BONUS_AD_QUEST.desc} (bonus)</h3><span class="tag">${BONUS_AD_QUEST.reward} 💎</span></div>
     <p class="desc">Quête bonus optionnelle, disponible chaque jour.</p>`;
   const bonusBtn = el("button", "btn primary full",
-    state.quests.bonusAd.claimed ? "Réclamée" : (state.quests.bonusAd.done ? "Réclamer" : "Regarder une pub"));
+    state.quests.bonusAd.claimed ? "Réclamée" : (state.quests.bonusAd.done || adsRemoved(state) ? "Réclamer" : "Regarder une pub"));
   bonusBtn.disabled = state.quests.bonusAd.claimed;
   bonusBtn.addEventListener("click", onBonusAdQuest);
   bonusCard.appendChild(bonusBtn);
@@ -567,15 +568,21 @@ function renderProgressionPanel() {
   // Astréos (fusion count), Erebus (fusion streak), Hélios (reach tier 7) and
   // Nyx (20 cells in one run) don't require a Big Bang at all - reaching
   // tier 7 in particular happens *on the way* to tier 10, so it belongs
-  // before "Atteindre l'Univers", not after "Premier Big Bang".
+  // before "Atteindre l'Univers", not after "Premier Big Bang". Within that
+  // group, ordered by rarity/typical difficulty (matches config.js's own
+  // commun -> rare -> épique ladder): Astréos (commun, 180 lifetime fusions -
+  // accumulates passively) before the two rares Hélios (tier 7, usually hit
+  // on the way to a first Universe) and Nyx (20 cells unlocked in one run, a
+  // deliberate Stardust sink) before Erebus (épique, a deliberate hidden
+  // challenge most players won't stumble into by accident).
   const godById = (id) => GODS.find(g => g.id === id);
   const godStep = (id) => { const g = godById(id); return { emoji: g.emoji, done: isGodUnlocked(state, id), text: g.name, sub: g.unlock.label }; };
   const steps = [];
   steps.push({ emoji: "🔱", done: !!state.gods.currentGodId, text: "Éveiller ton premier Dieu" });
   steps.push(godStep("astreos"));
-  steps.push(godStep("erebus"));
   steps.push(godStep("helios"));
   steps.push(godStep("nyx"));
+  steps.push(godStep("erebus"));
   steps.push({ emoji: TIERS[TIERS.length - 1].emoji, done: state.lifetime.maxTierEver >= TIERS.length, text: "Atteindre l'Univers" });
   steps.push({ emoji: "💥", done: state.lifetime.bigBangCount >= 1, text: "Premier Big Bang" });
   steps.push(godStep("thanatos"));
@@ -732,6 +739,7 @@ function openOfflineModal(gainInfo) {
   Game.pendingOfflineGain = gainInfo;
   const capNote = gainInfo.wasCapped ? ` (plafonné à ${offlineCapHours(Game.state)}h)` : "";
   $("offlineText").textContent = `Temps écoulé : ${formatDuration(gainInfo.cappedMs)}${capNote}\n+${formatNumber(gainInfo.gain)} Stardust`;
+  $("offlineDouble").textContent = adsRemoved(Game.state) ? "Doubler" : "Doubler (pub)";
   $("offlineModal").classList.remove("hidden");
 }
 
@@ -764,6 +772,7 @@ function refreshWheelButtons() {
   const s = Game.state.dailySpin;
   $("wheelSpinFree").disabled = s.freeUsed;
   $("wheelSpinAd").disabled = s.bonusUsed;
+  $("wheelSpinAd").textContent = adsRemoved(Game.state) ? "Spin bonus" : "Spin bonus (pub)";
 }
 function closeWheelModal() { $("wheelModal").classList.add("hidden"); }
 
@@ -777,6 +786,14 @@ function closeBigBangModal() { $("bigBangModal").classList.add("hidden"); }
 
 function openRestartModal() { $("restartModal").classList.remove("hidden"); }
 function closeRestartModal() { $("restartModal").classList.add("hidden"); }
+
+// ---------------- Remove-ads soft prompt (shown once, after the 5th rewarded ad) ----------------
+function openRemoveAdsPromptModal() {
+  const product = IAP_CATALOG.find(p => p.id === "remove_ads");
+  $("removeAdsPromptBuy").textContent = `${product.name} — ${product.price}`;
+  $("removeAdsPromptModal").classList.remove("hidden");
+}
+function closeRemoveAdsPromptModal() { $("removeAdsPromptModal").classList.add("hidden"); }
 
 // ---------------- Manual save backup modal ----------------
 function openSaveCodeModal(mode) {

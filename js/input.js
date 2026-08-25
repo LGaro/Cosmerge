@@ -251,6 +251,19 @@ function tickAutoSpawn(now) {
   }
 }
 
+// Every rewarded-ad-gated bonus in the game should funnel through this
+// instead of calling AdService.showRewarded directly: once ads are removed
+// (purchase or VIP), the player already paid specifically not to watch ads,
+// so the bonus is granted immediately with no video at all. Otherwise it
+// behaves like a normal rewarded ad, and also tracks the watch count that
+// triggers the one-time "remove ads" soft-prompt (see trackRewardedAdWatched).
+async function watchRewardedAd(state, placementId) {
+  if (adsRemoved(state)) return true;
+  const ok = await AdService.showRewarded(placementId);
+  if (ok && trackRewardedAdWatched(state)) openRemoveAdsPromptModal();
+  return ok;
+}
+
 // ---------------- Big Bang / interstitial ----------------
 async function maybeShowInterstitial() {
   const state = Game.state;
@@ -325,7 +338,7 @@ async function onOfflineCollect() {
 async function onOfflineDouble() {
   const state = Game.state;
   $("offlineCollect").disabled = true; $("offlineDouble").disabled = true;
-  const ok = await AdService.showRewarded("offline_double");
+  const ok = await watchRewardedAd(state, "offline_double");
   grantStardust(state, Game.pendingOfflineGain.gain * (ok ? 2 : 1));
   $("offlineCollect").disabled = false; $("offlineDouble").disabled = false;
   $("offlineModal").classList.add("hidden");
@@ -366,7 +379,7 @@ function onWheelSpinFree() {
 }
 async function onWheelSpinAd() {
   $("wheelSpinFree").disabled = true; $("wheelSpinAd").disabled = true;
-  const ok = await AdService.showRewarded("wheel_bonus");
+  const ok = await watchRewardedAd(Game.state, "wheel_bonus");
   if (!ok) { refreshWheelButtons(); return; }
   spinVisual(() => {
     const prize = spinWheel(Game.state, true);
@@ -385,8 +398,8 @@ async function onFreePlanet() {
     toast("Disponible dans " + formatDuration(state.cooldowns.freePlanetUntil - Date.now()));
     return;
   }
-  toast("📺 Chargement de la publicité...");
-  const ok = await AdService.showRewarded("free_planet");
+  if (!adsRemoved(state)) toast("📺 Chargement de la publicité...");
+  const ok = await watchRewardedAd(state, "free_planet");
   if (!ok) return;
   const result = grantFreePlanet(state);
   if (result.ok) { renderCell(result.idx, { spawned: true }); Sfx.spawn(); toast("🪐 Planète gratuite reçue !"); }
@@ -404,8 +417,8 @@ async function onWatchProdBoostAd() {
     toast("Disponible dans " + formatDuration(state.cooldowns.prodBoostUntil - Date.now()));
     return;
   }
-  toast("📺 Chargement de la publicité...");
-  const ok = await AdService.showRewarded("prod_boost");
+  if (!adsRemoved(state)) toast("📺 Chargement de la publicité...");
+  const ok = await watchRewardedAd(state, "prod_boost");
   if (!ok) return;
   activateProdBoost(state);
   Sfx.purchase();
@@ -474,6 +487,7 @@ async function onBuyIAP(productId) {
     case "gems_small": case "gems_medium": case "gems_large": case "gems_mega":
       state.gems += product.amount; state.lifetime.gemsEarned += product.amount; break;
     case "vip_monthly": state.iap.vipUntil = Date.now() + 30 * 24 * 3600 * 1000; break;
+    case "stardust_boost": state.iap.stardustBoost = true; break;
     case "skin_pack_violet": case "skin_pack_green": case "skin_pack_red":
       unlockSkinFree(state, product.skinId); state.iap.ownedSkinPacks.push(product.skinId); break;
   }
@@ -551,12 +565,12 @@ async function onBonusAdQuest() {
   const state = Game.state;
   if (state.quests.bonusAd.claimed) return;
   if (!state.quests.bonusAd.done) {
-    const ok = await AdService.showRewarded("quest_ad");
+    const ok = await watchRewardedAd(state, "quest_ad");
     if (!ok) return;
     markBonusAdQuestDone(state);
-    refreshCurrentPanel();
-    saveState(state);
-    return;
+    // Ads removed: there's no separate "watch" step for the player to see,
+    // so go straight on to claiming instead of leaving a second tap behind.
+    if (!adsRemoved(state)) { refreshCurrentPanel(); saveState(state); return; }
   }
   const reward = claimBonusAdQuest(state);
   if (reward) { Sfx.quest(); toast(`Quête bonus réclamée : +${reward} 💎`); refreshCurrentPanel(); updateHeader(); saveState(state); }
@@ -619,4 +633,10 @@ function wireEvents() {
 
   $("saveCodeCancel").addEventListener("click", closeSaveCodeModal);
   $("saveCodeAction").addEventListener("click", onSaveCodeAction);
+
+  $("removeAdsPromptLater").addEventListener("click", closeRemoveAdsPromptModal);
+  $("removeAdsPromptBuy").addEventListener("click", async () => {
+    closeRemoveAdsPromptModal();
+    await onBuyIAP("remove_ads");
+  });
 }
