@@ -114,7 +114,12 @@ function requestStorageAccessBestEffort() {
   // away instead of crediting it. This computes the catch-up on resume too,
   // and resets lastFrame so the next tick doesn't also try to claim that gap.
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") { saveState(Game.state); return; }
+    if (document.visibilityState === "hidden") {
+      saveState(Game.state);
+      MusicService.stop(); // clean fade instead of the OS abruptly cutting a mid-chord (the "bizarre" click on close/background)
+      return;
+    }
+    if (Game.settings.music) MusicService.start();
     const info = computeOfflineGain(Game.state, Date.now());
     const spawned = applyOfflineAutoSpawns(Game.state, info.cappedMs);
     if (spawned > 0) renderAll();

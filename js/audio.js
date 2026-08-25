@@ -136,6 +136,8 @@ const MusicService = (function () {
     timer = setTimeout(scheduleNext, (CHORD_DURATION_S - 1.5) * 1000);
   }
 
+  const MASTER_LEVEL = 0.026; // quiet ambience, well under the SFX
+
   return {
     start() {
       if (running) return;
@@ -143,8 +145,14 @@ const MusicService = (function () {
       if (!ctx) return;
       if (!masterGain) {
         masterGain = ctx.createGain();
-        masterGain.gain.value = 0.026; // quiet ambience, well under the SFX
+        masterGain.gain.value = MASTER_LEVEL;
         masterGain.connect(ctx.destination);
+      } else {
+        // Restore the level a previous stop() ramped down to 0 - without
+        // this, every restart after the app was backgrounded once would
+        // stay silent forever (new chords are children of this same gain).
+        masterGain.gain.cancelScheduledValues(ctx.currentTime);
+        masterGain.gain.setValueAtTime(MASTER_LEVEL, ctx.currentTime);
       }
       running = true;
       scheduleNext();
@@ -155,6 +163,16 @@ const MusicService = (function () {
       if (timer) clearTimeout(timer);
       if (sparkleTimer) clearTimeout(sparkleTimer);
       timer = null; sparkleTimer = null;
+      // Backgrounding/closing the app used to just leave whatever chord was
+      // mid-envelope hanging - the OS then cuts audio output abruptly at a
+      // non-zero amplitude, which is heard as a click/pop. Ramping the
+      // shared master gain to 0 first guarantees a clean silence instead.
+      if (masterGain) {
+        const ctx = masterGain.context;
+        masterGain.gain.cancelScheduledValues(ctx.currentTime);
+        masterGain.gain.setValueAtTime(masterGain.gain.value, ctx.currentTime);
+        masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.05);
+      }
     },
     setEnabled(on) { if (on) this.start(); else this.stop(); },
   };
