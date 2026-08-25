@@ -450,9 +450,6 @@ function renderStoryPanel() {
       <p class="desc">${god.lore}</p>`;
     dom.panelBody.appendChild(godCard);
   }
-
-  const hint = el("p", "desc", "Consulte l'onglet « Dieux du Cosmos » pour découvrir et incarner ceux que tu as éveillés.");
-  dom.panelBody.appendChild(hint);
 }
 
 // ---------------- Gods panel ----------------
@@ -477,20 +474,30 @@ function renderGodsPanel() {
     const equipped = state.gods.currentGodId === god.id;
     const queued = state.gods.nextGodId === god.id;
     const rarity = RARITY[god.rarity];
+    const level = state.gods.powerLevel[god.id] || 0;
     const card = el("div", "godCard" + (equipped ? " equipped" : "") + (unlocked ? "" : " locked"));
-    if (equipped) card.innerHTML = '<span class="equippedTag">En jeu</span>';
-    else if (queued) card.innerHTML = '<span class="equippedTag queued">Prochaine partie</span>';
-    card.innerHTML += `
+    const statusTag = equipped ? '<span class="equippedTag">En jeu</span>'
+      : (queued ? '<span class="equippedTag queued">Prochaine partie</span>' : "");
+    card.innerHTML = `
       <div class="godTop">
         <div class="godEmoji">${unlocked ? god.emoji : "❓"}</div>
         <div class="godNames">
           <div class="godName">${unlocked ? god.name : "???"}</div>
           <div class="godTitle">${unlocked ? god.title : "Non éveillé"}</div>
         </div>
-        <span class="alignTag">${god.alignment === "bienveillant" ? "🕊️" : "🔥"}</span>
-        <span class="rarityTag" style="background:${rarity.color}22;color:${rarity.color};">${rarity.label}</span>
+        <div class="godTagsCol">
+          <span class="alignTag">${god.alignment === "bienveillant" ? "🕊️" : "🔥"}</span>
+          <span class="rarityTag" style="background:${rarity.color}22;color:${rarity.color};">${rarity.label}</span>
+          ${statusTag}
+        </div>
       </div>
-      <p class="godDesc">${unlocked ? god.desc : "Débloque ce Dieu pour découvrir son pouvoir."}</p>`;
+      <p class="godDesc">${unlocked ? describeGodEffect(god, level) : "Débloque ce Dieu pour découvrir son pouvoir."}</p>`;
+
+    if (unlocked) {
+      const detailsBtn = el("button", "btn ghost full godDetailsBtn", "ℹ️ Détails et histoire");
+      detailsBtn.addEventListener("click", () => openGodDetailModal(god.id));
+      card.appendChild(detailsBtn);
+    }
 
     if (!unlocked) {
       const info = el("div", "godUnlockInfo");
@@ -556,12 +563,21 @@ function renderProgressionPanel() {
 
   dom.panelBody.appendChild(el("h3", null, "Ton parcours"));
 
+  // Ordered by roughly how a real playthrough reaches them, not by data
+  // declaration order - e.g. Séléna and Astréos are typically within reach
+  // in the very first run, well before a first Big Bang.
+  const godById = (id) => GODS.find(g => g.id === id);
   const steps = [];
+  steps.push({ emoji: "🔱", done: !!state.gods.currentGodId, text: "Éveiller ton premier Dieu" });
+  ["astreos"].forEach(id => {
+    const g = godById(id);
+    steps.push({ emoji: g.emoji, done: isGodUnlocked(state, id), text: g.name, sub: g.unlock.label });
+  });
   steps.push({ emoji: TIERS[TIERS.length - 1].emoji, done: state.lifetime.maxTierEver >= TIERS.length, text: "Atteindre l'Univers" });
   steps.push({ emoji: "💥", done: state.lifetime.bigBangCount >= 1, text: "Premier Big Bang" });
-  steps.push({ emoji: "🔱", done: !!state.gods.currentGodId, text: "Éveiller ton premier Dieu" });
-  GODS.filter(g => g.unlock.type === "milestone" || g.unlock.type === "challenge").forEach(g => {
-    steps.push({ emoji: g.emoji, done: isGodUnlocked(state, g.id), text: g.name, sub: g.unlock.label });
+  ["nyx", "helios", "erebus", "thanatos", "chronos"].forEach(id => {
+    const g = godById(id);
+    steps.push({ emoji: g.emoji, done: isGodUnlocked(state, id), text: g.name, sub: g.unlock.label });
   });
   steps.push({ emoji: "🏆", done: state.achievements.unlockedIds.length >= ACHIEVEMENTS.length,
     text: "Tous les succès", sub: `${state.achievements.unlockedIds.length}/${ACHIEVEMENTS.length}` });
@@ -601,6 +617,30 @@ function openGodPickerModal() {
     list.appendChild(card);
   });
   $("godRitualModal").classList.remove("hidden");
+}
+
+function openGodDetailModal(godId) {
+  const state = Game.state;
+  const god = getGod(godId);
+  const rarity = RARITY[god.rarity];
+  const level = state.gods.powerLevel[god.id] || 0;
+  $("godDetailCard").innerHTML = `
+    <div class="godTop">
+      <div class="godEmoji" style="width:52px;height:52px;font-size:26px;">${god.emoji}</div>
+      <div class="godNames">
+        <div class="godName" style="font-size:18px;">${god.name}</div>
+        <div class="godTitle">${god.title}</div>
+      </div>
+      <div class="godTagsCol">
+        <span class="alignTag">${god.alignment === "bienveillant" ? "🕊️ Bienveillant" : "🔥 Déchu"}</span>
+        <span class="rarityTag" style="background:${rarity.color}22;color:${rarity.color};">${rarity.label}</span>
+      </div>
+    </div>
+    <p class="godDesc" style="font-style:italic;">${god.lore}</p>
+    <p class="godDesc"><strong>Pouvoir actuel (niveau ${level}/${GOD_POWER_MAX_LEVEL}) :</strong> ${describeGodEffect(god, level)}</p>
+    <button class="btn full" id="godDetailClose">Fermer</button>`;
+  $("godDetailClose").addEventListener("click", () => $("godDetailModal").classList.add("hidden"));
+  $("godDetailModal").classList.remove("hidden");
 }
 
 function renderSettingsPanel() {

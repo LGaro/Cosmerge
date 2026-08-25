@@ -137,12 +137,23 @@ function attemptMerge(fromIdx, toIdx) {
   Sfx.merge(result.newTier);
   HapticService.impact(result.newTier >= 8 ? "heavy" : "medium");
   if (result.gemBonus) toast("+1 💎 Gem bonus !");
-  if (result.newTier === TIERS.length) toast("Univers créé ! 💥 Le Big Bang est disponible.");
+  if (result.newTier === TIERS.length) toast("Univers créé ! 💥");
   else toast(TIERS[result.newTier - 1].name + " " + TIERS[result.newTier - 1].emoji + " !");
   updateHeader();
   updateFabs();
   saveState(state);
   maybeOpenGodRitual();
+  maybeOpenBigBangPrompt();
+}
+
+// A toast alone was easy to miss - a player who reaches the Universe tile
+// and doesn't realize Big Bang is how you "start a new game" can end up
+// feeling stuck with nothing left to do. This surfaces it unmissably, once
+// per run (reset in onBigBangConfirm), a beat after the merge animation.
+function maybeOpenBigBangPrompt() {
+  if (Game.bigBangPromptShown || !hasUniverseTile(Game.state)) return;
+  Game.bigBangPromptShown = true;
+  setTimeout(openBigBangModal, 700);
 }
 
 function maybeOpenGodRitual() {
@@ -254,6 +265,7 @@ async function maybeShowInterstitial() {
 function onBigBangConfirm() {
   const state = Game.state;
   const gain = performBigBang(state);
+  Game.bigBangPromptShown = false;
   Sfx.bigBang();
   HapticService.impact("success");
   closeBigBangModal();
@@ -417,6 +429,7 @@ function onBuyGemItem(itemId) {
   updateHeader();
   saveState(Game.state);
   maybeOpenGodRitual();
+  maybeOpenBigBangPrompt();
 }
 function onSkinAction(skinId, owned) {
   const state = Game.state;

@@ -48,6 +48,7 @@ function requestStorageAccessBestEffort() {
     lastInterstitial: 0,
     skipCellArmed: false,
     pendingOfflineGain: null,
+    bigBangPromptShown: hasUniverseTile(state), // don't re-prompt on reload if a Universe tile already existed last save
   });
 
   buildStars();

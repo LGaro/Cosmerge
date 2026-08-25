@@ -15,13 +15,10 @@ function getGod(id) { return GODS.find(g => g.id === id); }
 // percentage add which would break for sub-1 multipliers.
 function scaleDeviation(base, level) { return 1 + (base - 1) * (1 + level * GOD_POWER_SCALING_PER_LEVEL); }
 
-function getGodEffects(state) {
-  if (!state.gods || !state.gods.currentGodId) return {};
-  const god = getGod(state.gods.currentGodId);
-  if (!god) return {};
-  const level = (state.gods.powerLevel && state.gods.powerLevel[god.id]) || 0;
-  if (level <= 0) return god.effects;
-
+// Reusable for any god (not just the equipped one) so the Gods panel can
+// preview each card's real numbers at its own purchased power level.
+function effectsForGodAtLevel(god, level) {
+  if (!level) return god.effects;
   const scaled = {};
   const growthFactor = 1 + level * GOD_POWER_SCALING_PER_LEVEL;
   for (const key in god.effects) {
@@ -36,6 +33,35 @@ function getGodEffects(state) {
     }
   }
   return scaled;
+}
+
+function getGodEffects(state) {
+  if (!state.gods || !state.gods.currentGodId) return {};
+  const god = getGod(state.gods.currentGodId);
+  if (!god) return {};
+  const level = (state.gods.powerLevel && state.gods.powerLevel[god.id]) || 0;
+  return effectsForGodAtLevel(god, level);
+}
+
+// Human-readable version of a god's *current* (power-level-scaled) bonus -
+// this is what actually changes as you spend Gems on power level, since the
+// static god.desc text never reflected the live numbers.
+function describeGodEffect(god, level) {
+  const eff = effectsForGodAtLevel(god, level);
+  const pct = (mult) => (mult >= 1 ? "+" : "") + Math.round((mult - 1) * 100) + "%";
+  const parts = [];
+  if (eff.tierProdBonus) {
+    const tierNames = TIERS.slice(eff.tierProdBonus.minTier - 1, eff.tierProdBonus.maxTier).map(t => t.name).join(" et ");
+    parts.push(`${pct(eff.tierProdBonus.mult)} production (${tierNames})`);
+  }
+  if (eff.prodMult) parts.push(`${pct(eff.prodMult)} production globale`);
+  if (eff.gemsMult) parts.push(`${pct(eff.gemsMult)} Gems gagnées`);
+  if (eff.spawnSpeedMult) parts.push(`${Math.round((1 - eff.spawnSpeedMult) * 100)}% spawn plus rapide`);
+  if (eff.extraStartCells) parts.push(`+${eff.extraStartCells.toFixed(1)} case(s) de départ`);
+  if (eff.offlineCapBonusH) parts.push(`+${eff.offlineCapBonusH.toFixed(1)}h plafond hors-ligne`);
+  if (eff.gemChanceBonus) parts.push(`+${(eff.gemChanceBonus * 100).toFixed(1)}% chance de Gem`);
+  if (eff.bigBangMinEnergy) parts.push(`≥${eff.bigBangMinEnergy.toFixed(1)} ⚡ garantis au Big Bang`);
+  return parts.join(", ");
 }
 function isGodUnlocked(state, godId) { return state.gods.unlockedIds.includes(godId); }
 
@@ -85,7 +111,7 @@ function resetErebusStreak(state) { state.gods.erebusStreak = 0; }
 // ---- Thanatos challenge: checked once, at the moment Big Bang is confirmed ----
 function checkThanatosChallenge(state) {
   if (isGodUnlocked(state, "thanatos")) return;
-  if (emptyUnlockedIndices(state).length > 0) unlockGod(state, "thanatos");
+  if (emptyUnlockedIndices(state).length >= unlockedCount(state) / 2) unlockGod(state, "thanatos");
 }
 
 // ---- Choosing / swapping gods ----

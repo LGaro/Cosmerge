@@ -12,8 +12,11 @@ const DRAG_THRESHOLD = 10;
 const BASE_OFFLINE_CAP_H = 8;
 const MAX_OFFLINE_CAP_H = 24;
 const FREE_PLANET_COOLDOWN_MS = 4 * 60 * 60 * 1000;
-const PROD_BOOST_COOLDOWN_MS = 20 * 60 * 1000;
-const PROD_BOOST_DURATION_MS = 30 * 60 * 1000;
+// Short + frequent beats long + forgettable for rewarded-ad engagement: a
+// 30 min boost gets watched once and ignored, a 10 min one stays felt and
+// is worth re-watching for well within a normal play session.
+const PROD_BOOST_COOLDOWN_MS = 12 * 60 * 1000;
+const PROD_BOOST_DURATION_MS = 10 * 60 * 1000;
 const INTERSTITIAL_MIN_GAP_MS = 3 * 60 * 1000;
 const INTERSTITIAL_QUIET_START_MS = 60 * 1000;
 const MOON_MERGES_TO_CHOOSE_GOD = 4;
@@ -84,7 +87,7 @@ const GODS = [
     rarity: "commun", alignment: "bienveillant",
     desc: "Spawn automatique 10% plus rapide",
     effects: { spawnSpeedMult: 0.9 }, // used in state.js autoSpawnIntervalMs
-    unlock: { type: "milestone", check: (s) => s.lifetime.fusions >= 50, label: "Réalise 50 fusions à vie" },
+    unlock: { type: "milestone", check: (s) => s.lifetime.fusions >= 180, label: "Réalise 180 fusions à vie" },
     lore: "Il fut le premier corps à se briser lors de la Rupture. Depuis, il pousse inlassablement la poussière vers la lumière, pour que jamais une case ne reste vide trop longtemps.",
   },
   {
@@ -118,8 +121,8 @@ const GODS = [
     effects: { gemsMult: 1.25, prodMult: 0.9 },
     unlock: {
       type: "challenge", challengeId: "erebus",
-      label: "Défi : enchaîne 15 fusions sans utiliser le bonus manuel (tap)",
-      target: 15,
+      label: "Défi : enchaîne 35 fusions sans utiliser le bonus manuel (tap)",
+      target: 35,
     },
     lore: "Erebus fut banni pour avoir préféré le désordre fécond à l'ordre stérile. Le servir a un prix - moins de matière produite - mais il paie grassement en poussière précieuse ceux qui l'acceptent.",
   },
@@ -130,7 +133,7 @@ const GODS = [
     effects: { bigBangMinEnergy: 5 }, // used in economy.js performBigBang
     unlock: {
       type: "challenge", challengeId: "thanatos",
-      label: "Défi : déclenche un Big Bang alors que la grille n'est pas encore pleine",
+      label: "Défi : déclenche un Big Bang alors que moins de la moitié des cases débloquées sont occupées",
       target: 1,
     },
     lore: "Thanatos n'attend jamais que tout soit fini pour mettre un terme aux choses. Il enseigne qu'un cycle interrompu à temps vaut parfois mieux qu'un cycle mené jusqu'à l'épuisement.",
