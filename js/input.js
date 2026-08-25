@@ -464,10 +464,13 @@ async function onRestorePurchases() {
 }
 function onChooseGod(godId) {
   const state = Game.state;
+  const hadCurrent = !!state.gods.currentGodId;
+  const wasQueued = state.gods.nextGodId;
   chooseGod(state, godId);
   Sfx.purchase();
-  const willQueueForNextRun = !!state.gods.currentGodId && state.gods.currentGodId !== godId;
-  toast(willQueueForNextRun ? "Choisi pour le prochain Big Bang." : `${getGod(godId).name} t'accompagne désormais !`);
+  if (!hadCurrent) toast(`${getGod(godId).name} t'accompagne désormais !`);
+  else if (wasQueued && !state.gods.nextGodId) toast("Choix annulé.");
+  else toast(`${getGod(godId).name} choisi pour le prochain Big Bang.`);
   refreshCurrentPanel();
   saveState(state);
 }
@@ -477,6 +480,27 @@ function onBuyGod(godId) {
   refreshCurrentPanel();
   updateHeader();
   saveState(Game.state);
+}
+function onBuyGodPower(godId) {
+  const result = buyGodPowerLevel(Game.state, godId);
+  if (!result.ok) { Sfx.error(); toast(result.reason === "max" ? "Niveau maximum atteint." : "Pas assez de Gems."); return; }
+  Sfx.purchase();
+  toast(`${getGod(godId).name} — niveau de pouvoir ${result.newLevel} !`);
+  refreshCurrentPanel();
+  updateHeader();
+  saveState(Game.state);
+}
+
+function onProfileSave() {
+  const state = Game.state;
+  const name = $("profileNameInput").value.trim();
+  state.profile.name = name || "Joueur";
+  state.profile.emoji = profileDraft.emoji;
+  state.profile.color = profileDraft.color;
+  Sfx.purchase();
+  toast("Profil enregistré !");
+  closeProfileModal();
+  saveState(state);
 }
 
 function onBuySkill(key) {
@@ -536,6 +560,9 @@ function wireEvents() {
   dom.bigBangBtn.addEventListener("click", () => openBigBangModal());
   dom.menuBtn.addEventListener("click", () => openDrawer());
   dom.drawerClose.addEventListener("click", closeDrawer);
+  $("drawerHeadEdit").addEventListener("click", (e) => { e.stopPropagation(); closeDrawer(); openProfileModal(); });
+  $("profileCancel").addEventListener("click", closeProfileModal);
+  $("profileSave").addEventListener("click", onProfileSave);
   dom.drawerOverlay.addEventListener("click", (e) => { if (e.target === dom.drawerOverlay) closeDrawer(); });
   document.querySelectorAll(".drawerItem[data-panel]").forEach(b => b.addEventListener("click", () => openPanel(b.dataset.panel)));
   dom.panelClose.addEventListener("click", closePanel);

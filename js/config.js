@@ -295,3 +295,15 @@ function areAdjacent(a, b) {
   const ra = rowOf(a), ca = colOf(a), rb = rowOf(b), cb = colOf(b);
   return (ra === rb && Math.abs(ca - cb) === 1) || (ca === cb && Math.abs(ra - rb) === 1);
 }
+
+// ---- Player profile (drawer header identity) ----
+const PROFILE_EMOJI_CHOICES = ["✨", "🪐", "🌙", "⭐", "☄️", "🌌", "🔥", "⚡", "🌍", "💫", "🕳️", "👑", "🦄", "🎯", "💎", "🚀"];
+const PROFILE_COLOR_CHOICES = ["#f7b733", "#8b5cf6", "#22d3ee", "#f472b6", "#34d399", "#f87171", "#60a5fa", "#fbbf24"];
+
+// ---- God power level (per-god upgrade paid in Gems, scales that god's own effect) ----
+const GOD_POWER_MAX_LEVEL = 10;
+function godPowerCost(nextLevel) { return Math.ceil(15 * Math.pow(1.35, nextLevel - 1)); }
+// How much stronger a god's effect gets per power level - applied as a
+// multiplier on the *deviation from neutral* so it works for both >1 and <1
+// base multipliers (see gods.js scaleGodEffects).
+const GOD_POWER_SCALING_PER_LEVEL = 0.15;

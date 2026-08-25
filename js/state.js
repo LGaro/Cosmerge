@@ -23,7 +23,7 @@ function pickDailyQuests() {
 function freshGrid(state) {
   const unlocked = new Array(TOTAL).fill(false);
   const godEffects = getGodEffects(state);
-  const extra = state.skills.swarm + (godEffects.extraStartCells || 0);
+  const extra = state.skills.swarm + Math.round(godEffects.extraStartCells || 0);
   const startCells = INITIAL_UNLOCKED.slice();
   // additional starting cells from the Swarm skill: nearest locked neighbours of the initial block
   if (extra > 0) {
@@ -80,7 +80,8 @@ function defaultState() {
       erebusStreak: 0,             // fusions since the last manual tap bonus (Erebus challenge)
       usedFusionExpressThisRun: false, // Morgorath challenge requires never using it
       morgorathChallengeCleared: false,
-      usageCount: {}, // { godId: number of Big Bangs completed with that god equipped } - shown as "Niveau du Dieu"
+      usageCount: {}, // { godId: number of Big Bangs completed with that god equipped } - informational only
+      powerLevel: {}, // { godId: purchased power level, see godPowerCost() } - actually scales that god's effect
     },
     moonMergesThisRun: 0, // toward MOON_MERGES_TO_CHOOSE_GOD (first-god ritual)
 
@@ -91,6 +92,7 @@ function defaultState() {
 
     settings: { sound: true, music: true, notifications: true },
     firstPlayedDay: todayStr(),
+    profile: { name: "Joueur", emoji: "✨", color: "#f7b733" },
   };
   const seeded = freshGrid(state);
   state.grid = seeded.grid;

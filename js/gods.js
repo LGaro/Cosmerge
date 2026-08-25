@@ -8,10 +8,34 @@
 "use strict";
 
 function getGod(id) { return GODS.find(g => g.id === id); }
+
+// Scales a multiplier-shaped value (something meant to sit around 1.0, e.g.
+// 1.15 for +15% or 0.9 for -10%) by amplifying its *deviation* from 1 - this
+// works whether the base bonus pushes the value up or down, unlike a flat
+// percentage add which would break for sub-1 multipliers.
+function scaleDeviation(base, level) { return 1 + (base - 1) * (1 + level * GOD_POWER_SCALING_PER_LEVEL); }
+
 function getGodEffects(state) {
   if (!state.gods || !state.gods.currentGodId) return {};
   const god = getGod(state.gods.currentGodId);
-  return god ? god.effects : {};
+  if (!god) return {};
+  const level = (state.gods.powerLevel && state.gods.powerLevel[god.id]) || 0;
+  if (level <= 0) return god.effects;
+
+  const scaled = {};
+  const growthFactor = 1 + level * GOD_POWER_SCALING_PER_LEVEL;
+  for (const key in god.effects) {
+    const value = god.effects[key];
+    if (key === "tierProdBonus") {
+      scaled[key] = { ...value, mult: scaleDeviation(value.mult, level) };
+    } else if (key === "prodMult" || key === "gemsMult" || key === "spawnSpeedMult") {
+      scaled[key] = scaleDeviation(value, level);
+    } else {
+      // additive effects (extraStartCells, offlineCapBonusH, gemChanceBonus, bigBangMinEnergy)
+      scaled[key] = value * growthFactor;
+    }
+  }
+  return scaled;
 }
 function isGodUnlocked(state, godId) { return state.gods.unlockedIds.includes(godId); }
 
@@ -90,6 +114,17 @@ function applyPendingGodAtBigBang(state) {
   state.moonMergesThisRun = 0;
   state.gods.erebusStreak = 0;
   state.gods.usedFusionExpressThisRun = false;
+}
+
+function buyGodPowerLevel(state, godId) {
+  if (!isGodUnlocked(state, godId)) return { ok: false, reason: "unknown" };
+  const level = state.gods.powerLevel[godId] || 0;
+  if (level >= GOD_POWER_MAX_LEVEL) return { ok: false, reason: "max" };
+  const cost = godPowerCost(level + 1);
+  if (state.gems < cost) return { ok: false, reason: "funds", cost };
+  state.gems -= cost;
+  state.gods.powerLevel[godId] = level + 1;
+  return { ok: true, newLevel: level + 1, cost };
 }
 
 function buyGodWithGems(state, godId) {

@@ -2,6 +2,7 @@
 "use strict";
 
 const $ = (id) => document.getElementById(id);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
 const dom = {
   grid: $("grid"),
@@ -147,8 +148,14 @@ function updateFabs() {
   const fpReady = Date.now() >= state.cooldowns.freePlanetUntil;
   dom.fabFreePlanet.classList.toggle("ready", fpReady);
   dom.fabFreePlanet.disabled = false;
-  const boostReady = Date.now() >= state.cooldowns.prodBoostUntil && !(state.cooldowns.prodBoostActiveUntil > Date.now());
+  const now = Date.now();
+  const boostActive = state.cooldowns.prodBoostActiveUntil > now;
+  const boostReady = now >= state.cooldowns.prodBoostUntil && !boostActive;
   $("fabBoost").classList.toggle("ready", boostReady);
+  $("fabBoost").classList.toggle("active", boostActive);
+  const boostLabel = boostActive ? formatDuration(state.cooldowns.prodBoostActiveUntil - now)
+    : (boostReady ? "Boost x2" : formatDuration(state.cooldowns.prodBoostUntil - now));
+  if ($("fabBoostLabel").textContent !== boostLabel) $("fabBoostLabel").textContent = boostLabel;
   dom.bannerAd.classList.toggle("hidden", adsRemoved(state));
   updateQuestNotifDot();
 }
@@ -198,22 +205,49 @@ function toast(msg) {
 }
 
 // ---------------- Drawer & generic panel ----------------
-function openDrawer() {
+function renderDrawerHead() {
   const state = Game.state;
-  dom.drawerOverlay.classList.remove("hidden");
   $("drawerLevel").textContent = `Niveau Cosmique ${state.lifetime.bigBangCount}`;
-  const god = state.gods.currentGodId ? getGod(state.gods.currentGodId) : null;
-  if (god) {
-    $("drawerHeadLogo").textContent = god.emoji;
-    $("drawerHeadTitle").textContent = god.name;
-    $("drawerGodLevel").textContent = `Niveau de ${god.name} : ${state.gods.usageCount[god.id] || 0}`;
-  } else {
-    $("drawerHeadLogo").textContent = "✨";
-    $("drawerHeadTitle").textContent = "Cosmerge";
-    $("drawerGodLevel").textContent = "";
-  }
+  $("drawerHeadLogo").textContent = state.profile.emoji;
+  $("drawerHeadLogo").style.background = `radial-gradient(circle at 35% 30%, #fff, ${state.profile.color})`;
+  $("drawerHeadTitle").textContent = state.profile.name;
+}
+function openDrawer() {
+  dom.drawerOverlay.classList.remove("hidden");
+  renderDrawerHead();
   requestAnimationFrame(() => dom.drawerOverlay.classList.add("open"));
 }
+
+// ---------------- Profile editor modal ----------------
+let profileDraft = null;
+function openProfileModal() {
+  profileDraft = { ...Game.state.profile };
+  $("profileNameInput").value = profileDraft.name;
+
+  const emojiPicker = $("profileEmojiPicker");
+  emojiPicker.innerHTML = "";
+  PROFILE_EMOJI_CHOICES.forEach(emoji => {
+    const btn = el("button", "profileEmojiBtn" + (emoji === profileDraft.emoji ? " selected" : ""), emoji);
+    btn.addEventListener("click", () => { profileDraft.emoji = emoji; openProfileModal.refresh(); });
+    emojiPicker.appendChild(btn);
+  });
+
+  const colorPicker = $("profileColorPicker");
+  colorPicker.innerHTML = "";
+  PROFILE_COLOR_CHOICES.forEach(color => {
+    const btn = el("button", "profileColorBtn" + (color === profileDraft.color ? " selected" : ""));
+    btn.style.background = color;
+    btn.addEventListener("click", () => { profileDraft.color = color; openProfileModal.refresh(); });
+    colorPicker.appendChild(btn);
+  });
+
+  $("profileModal").classList.remove("hidden");
+}
+openProfileModal.refresh = function () {
+  $$("#profileEmojiPicker .profileEmojiBtn").forEach((b, i) => b.classList.toggle("selected", PROFILE_EMOJI_CHOICES[i] === profileDraft.emoji));
+  $$("#profileColorPicker .profileColorBtn").forEach((b, i) => b.classList.toggle("selected", PROFILE_COLOR_CHOICES[i] === profileDraft.color));
+};
+function closeProfileModal() { $("profileModal").classList.add("hidden"); }
 function closeDrawer() {
   dom.drawerOverlay.classList.remove("open");
   setTimeout(() => dom.drawerOverlay.classList.add("hidden"), 300);
@@ -445,6 +479,7 @@ function renderGodsPanel() {
     const rarity = RARITY[god.rarity];
     const card = el("div", "godCard" + (equipped ? " equipped" : "") + (unlocked ? "" : " locked"));
     if (equipped) card.innerHTML = '<span class="equippedTag">En jeu</span>';
+    else if (queued) card.innerHTML = '<span class="equippedTag queued">Prochaine partie</span>';
     card.innerHTML += `
       <div class="godTop">
         <div class="godEmoji">${unlocked ? god.emoji : "❓"}</div>
@@ -476,12 +511,31 @@ function renderGodsPanel() {
         btn.addEventListener("click", () => onBuyGod(god.id));
         card.appendChild(btn);
       }
-    } else if (!equipped) {
-      const btn = el("button", "btn full", queued ? "Choisi pour le prochain Big Bang" : "Choisir");
+    } else if (queued) {
+      const btn = el("button", "btn ghost full", "✕ Annuler ce choix");
       btn.style.marginTop = "8px";
-      btn.disabled = queued;
+      btn.addEventListener("click", () => onChooseGod(state.gods.currentGodId));
+      card.appendChild(btn);
+    } else if (!equipped) {
+      const btn = el("button", "btn full", "Choisir pour le prochain Big Bang");
+      btn.style.marginTop = "8px";
       btn.addEventListener("click", () => onChooseGod(god.id));
       card.appendChild(btn);
+    }
+
+    if (unlocked) {
+      const level = state.gods.powerLevel[god.id] || 0;
+      const maxed = level >= GOD_POWER_MAX_LEVEL;
+      const cost = maxed ? null : godPowerCost(level + 1);
+      const power = el("div", "godPower");
+      power.innerHTML = `<div class="rowBetween"><span class="godPowerLabel">Niveau de pouvoir</span><span class="skillLevel">${level}/${GOD_POWER_MAX_LEVEL}</span></div>
+        <div class="progressBar"><div class="fill" style="width:${(level / GOD_POWER_MAX_LEVEL * 100).toFixed(1)}%"></div></div>`;
+      const btn = el("button", "btn primary full", maxed ? "Niveau maximum" : `Améliorer — ${cost} 💎`);
+      btn.style.marginTop = "6px";
+      btn.disabled = maxed || state.gems < cost;
+      if (!maxed) btn.addEventListener("click", () => onBuyGodPower(god.id));
+      power.appendChild(btn);
+      card.appendChild(power);
     }
     dom.panelBody.appendChild(card);
   });
@@ -500,24 +554,28 @@ function renderProgressionPanel() {
     <p class="rowBetween"><span>Dieux éveillés</span><strong>${state.gods.unlockedIds.length} / ${GODS.length}</strong></p>`;
   dom.panelBody.appendChild(summary);
 
-  const pathCard = el("div", "card");
-  pathCard.innerHTML = "<h3>Prochaines étapes</h3>";
+  dom.panelBody.appendChild(el("h3", null, "Ton parcours"));
+
   const steps = [];
-  steps.push({ done: state.lifetime.maxTierEver >= TIERS.length, text: "Atteindre l'Univers ✨ au moins une fois" });
-  steps.push({ done: state.lifetime.bigBangCount >= 1, text: "Déclencher ton premier Big Bang 💥" });
-  steps.push({ done: !!state.gods.currentGodId, text: "Éveiller ton premier Dieu (fusionne 4 Lunes) 🔱" });
+  steps.push({ emoji: TIERS[TIERS.length - 1].emoji, done: state.lifetime.maxTierEver >= TIERS.length, text: "Atteindre l'Univers" });
+  steps.push({ emoji: "💥", done: state.lifetime.bigBangCount >= 1, text: "Premier Big Bang" });
+  steps.push({ emoji: "🔱", done: !!state.gods.currentGodId, text: "Éveiller ton premier Dieu" });
   GODS.filter(g => g.unlock.type === "milestone" || g.unlock.type === "challenge").forEach(g => {
-    steps.push({ done: isGodUnlocked(state, g.id), text: `Éveiller ${g.name} — ${g.unlock.label}` });
+    steps.push({ emoji: g.emoji, done: isGodUnlocked(state, g.id), text: g.name, sub: g.unlock.label });
   });
-  steps.push({ done: state.achievements.unlockedIds.length >= ACHIEVEMENTS.length, text: `Débloquer tous les succès (${state.achievements.unlockedIds.length}/${ACHIEVEMENTS.length})` });
+  steps.push({ emoji: "🏆", done: state.achievements.unlockedIds.length >= ACHIEVEMENTS.length,
+    text: "Tous les succès", sub: `${state.achievements.unlockedIds.length}/${ACHIEVEMENTS.length}` });
 
   const nextIdx = steps.findIndex(s => !s.done);
+  const roadmap = el("div", "roadmap");
   steps.forEach((s, i) => {
-    const row = el("div", "pathStep" + (s.done ? " done" : (i === nextIdx ? " next" : "")));
-    row.innerHTML = `<span class="pathStepDot"></span><span class="pathStepText">${s.text}</span>`;
-    pathCard.appendChild(row);
+    const state2 = s.done ? "done" : (i === nextIdx ? "next" : "locked");
+    const node = el("div", "roadNode " + state2);
+    node.innerHTML = `<div class="roadIcon">${s.done ? "✓" : s.emoji}</div>
+      <div class="roadText"><div class="roadLabel">${s.text}</div>${s.sub ? `<div class="roadSub">${s.sub}</div>` : ""}</div>`;
+    roadmap.appendChild(node);
   });
-  dom.panelBody.appendChild(pathCard);
+  dom.panelBody.appendChild(roadmap);
 }
 
 // ---------------- God ritual & selection actions ----------------
