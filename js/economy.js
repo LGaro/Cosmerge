@@ -15,6 +15,13 @@ function performBigBang(state) {
   state.cosmicEnergy += gain;
   state.lifetime.bigBangCount += 1;
 
+  // Personal-best time-to-Big-Bang, surfaced in the Stardust info popup as a
+  // target to beat next run (see ui.js openStardustInfoModal).
+  const elapsedMs = Date.now() - state.runStartedAt;
+  if (state.lifetime.bestBigBangMs === null || elapsedMs < state.lifetime.bestBigBangMs) {
+    state.lifetime.bestBigBangMs = elapsedMs;
+  }
+
   applyPendingGodAtBigBang(state);
   const seeded = freshGrid(state);
   state.grid = seeded.grid;
@@ -24,6 +31,7 @@ function performBigBang(state) {
   state.maxTierThisRun = 1;
   state.manualSpawnCount = 0;
   state.extraUnlockedCount = 0;
+  state.runStartedAt = Date.now();
 
   checkAchievements(state);
   return gain;
@@ -49,6 +57,7 @@ function restartRun(state) {
   state.maxTierThisRun = 1;
   state.manualSpawnCount = 0;
   state.extraUnlockedCount = 0;
+  state.runStartedAt = Date.now();
 }
 
 function buySkill(state, key) {
@@ -80,6 +89,16 @@ function buyGemShopItem(state, itemId, opts) {
     state.gods.usedFusionExpressThisRun = true;
     const merges = resolveAllMerges(state);
     return { ok: true, merges };
+  }
+  if (itemId === "swapCells") {
+    const idxA = opts && opts.idxA, idxB = opts && opts.idxB;
+    if (idxA === undefined || idxB === undefined || idxA === idxB) return { ok: false, reason: "target" };
+    if (!state.unlocked[idxA] || !state.unlocked[idxB]) return { ok: false, reason: "target" };
+    state.gems -= item.cost;
+    const tmp = state.grid[idxA];
+    state.grid[idxA] = state.grid[idxB];
+    state.grid[idxB] = tmp;
+    return { ok: true, idxA, idxB };
   }
   if (itemId === "streakFreeze") {
     state.gems -= item.cost;
@@ -146,7 +165,7 @@ function performMerge(state, fromIdx, toIdx) {
 function buySkinWithGems(state, skinId) {
   const skin = SKINS.find(s => s.id === skinId);
   if (!skin || skin.cost === 0) return { ok: false, reason: "unknown" };
-  if (state.ownedSkins.includes(skinId)) return { ok: false, reason: "owned" };
+  if (isSkinOwned(state, skinId)) return { ok: false, reason: "owned" };
   if (state.gems < skin.cost) return { ok: false, reason: "funds" };
   state.gems -= skin.cost;
   state.ownedSkins.push(skinId);
@@ -156,7 +175,7 @@ function unlockSkinFree(state, skinId) {
   if (!state.ownedSkins.includes(skinId)) state.ownedSkins.push(skinId);
 }
 function equipSkin(state, skinId) {
-  if (state.ownedSkins.includes(skinId)) { state.equippedSkin = skinId; return true; }
+  if (isSkinOwned(state, skinId)) { state.equippedSkin = skinId; return true; }
   return false;
 }
 
@@ -174,6 +193,14 @@ function grantFreePlanet(state) {
   state.grid[idx] = { tier: FREE_PLANET_TIER };
   state.cooldowns.freePlanetUntil = Date.now() + FREE_PLANET_COOLDOWN_MS;
   return { ok: true, idx };
+}
+
+// Ad-based Gems source, meant to be grindable toward a specific shop item
+// rather than a big one-off (see GEMS_AD_COOLDOWN_MS/GEMS_AD_REWARD).
+function grantGemsFromAd(state) {
+  const granted = grantGems(state, GEMS_AD_REWARD);
+  state.cooldowns.gemsAdUntil = Date.now() + GEMS_AD_COOLDOWN_MS;
+  return granted;
 }
 
 // Ad-based relief valve for unlockCost's 1.5x-per-cell growth, which is what

@@ -47,6 +47,14 @@ function tierStyle(tier) {
   return `background:radial-gradient(circle at 35% 30%, ${t.from}, ${t.to});`;
 }
 
+// Themed skins (Fruits du Cosmos, Légumes de l'Espace...) replace each
+// tier's emoji/name via SKINS[x].tierSkin - every place that shows a tier's
+// identity to the player (grid tiles, the merge toast) reads through these
+// instead of TIERS directly, so equipping one actually changes what you see.
+function equippedSkinDef() { return SKINS.find(s => s.id === Game.state.equippedSkin) || SKINS[0]; }
+function tierEmoji(tier) { const s = equippedSkinDef(); return (s.tierSkin && s.tierSkin[tier - 1]) ? s.tierSkin[tier - 1].emoji : TIERS[tier - 1].emoji; }
+function tierName(tier) { const s = equippedSkinDef(); return (s.tierSkin && s.tierSkin[tier - 1]) ? s.tierSkin[tier - 1].name : TIERS[tier - 1].name; }
+
 function renderCell(i, opts) {
   opts = opts || {};
   const state = Game.state;
@@ -87,7 +95,7 @@ function renderCell(i, opts) {
   tile.style.cssText += tierStyle(tileData.tier);
   const emoji = document.createElement("div");
   emoji.className = "emoji";
-  emoji.textContent = TIERS[tileData.tier - 1].emoji;
+  emoji.textContent = tierEmoji(tileData.tier);
   const num = document.createElement("div");
   num.className = "tierNum";
   num.textContent = tileData.tier;
@@ -128,12 +136,16 @@ function updateHeader() {
   if (costStr !== lastHeaderRender.cost) { dom.invokeCost.textContent = costStr; lastHeaderRender.cost = costStr; }
   const disabled = state.stardust < cost;
   if (disabled !== lastHeaderRender.disabled) { dom.invokeBtn.classList.toggle("disabled", disabled); lastHeaderRender.disabled = disabled; }
+  const gemsDisabled = state.gems < GEMS_INVOKE_COST;
+  if (gemsDisabled !== lastHeaderRender.gemsDisabled) { $("invokeGemsBtn").classList.toggle("disabled", gemsDisabled); lastHeaderRender.gemsDisabled = gemsDisabled; }
+  if (!lastHeaderRender.gemsCostSet) { $("invokeGemsBtn").textContent = `💎 ${GEMS_INVOKE_COST}`; lastHeaderRender.gemsCostSet = true; }
 
   const canBB = hasUniverseTile(state);
   if (canBB !== lastHeaderRender.canBB) { dom.bigBangBtn.classList.toggle("hidden", !canBB); lastHeaderRender.canBB = canBB; }
 
   let hint = "";
   if (Game.skipCellArmed) hint = "Choisis une case verrouillée à débloquer avec des Gems";
+  else if (Game.swapArmed) hint = Game.swapFirstIdx === null ? "Échange : choisis la première case" : "Échange : choisis la seconde case";
   else if (Game.selectedIdx !== null) {
     hint = state.grid[Game.selectedIdx] ? "Sélectionné : glissez/tapez une case adjacente identique" : "Case choisie pour la prochaine invocation";
   }
@@ -142,7 +154,12 @@ function updateHeader() {
 
 function updateFabs() {
   const state = Game.state;
-  dom.fabDailyLogin.classList.toggle("hidden", !isDailyLoginAvailable(state));
+  // Used to hide once claimed, which meant there was no way at all to check
+  // your streak/freeze status between claims - it stays visible and just
+  // switches to a "streak" readout (still opens the same modal, read-only).
+  const claimedToday = !isDailyLoginAvailable(state);
+  dom.fabDailyLogin.querySelector(".fabIcon").textContent = claimedToday ? "🔥" : "🎁";
+  dom.fabDailyLogin.querySelector(".fabLabel").textContent = claimedToday ? `Série ${state.dailyLogin.streak}` : "Cadeau";
   ensureDailySpin(state);
   dom.fabWheel.classList.toggle("hidden", state.dailySpin.freeUsed && state.dailySpin.bonusUsed);
   const fpReady = Date.now() >= state.cooldowns.freePlanetUntil;
@@ -159,6 +176,11 @@ function updateFabs() {
   const boostLabel = boostActive ? formatDuration(state.cooldowns.prodBoostActiveUntil - now)
     : (boostReady ? "Boost x2" : formatDuration(state.cooldowns.prodBoostUntil - now));
   if ($("fabBoostLabel").textContent !== boostLabel) $("fabBoostLabel").textContent = boostLabel;
+
+  const gemsAdReady = now >= state.cooldowns.gemsAdUntil;
+  $("fabGemsAd").classList.toggle("ready", gemsAdReady);
+  const gemsAdLabel = gemsAdReady ? `+${GEMS_AD_REWARD} Gems` : formatDuration(state.cooldowns.gemsAdUntil - now);
+  if ($("fabGemsAdLabel").textContent !== gemsAdLabel) $("fabGemsAdLabel").textContent = gemsAdLabel;
   dom.bannerAd.classList.toggle("hidden", adsRemoved(state));
   updateQuestNotifDot();
 
@@ -296,8 +318,8 @@ function renderShopPanel() {
   dom.panelBody.appendChild(el("h3", null, "Boosts publicitaires"));
   const boostReady = Date.now() >= state.cooldowns.prodBoostUntil;
   const boostActive = state.cooldowns.prodBoostActiveUntil > Date.now();
-  const boostCard = el("div", "card");
-  boostCard.innerHTML = `<div class="rowBetween"><h3>Boost x2 production (10 min)</h3></div>
+  const boostCard = el("div", "card compact");
+  boostCard.innerHTML = `<div class="rowBetween"><h3>🚀 Boost x2 production (10 min)</h3></div>
     <p class="desc">${boostActive ? `Actif encore ${formatDuration(state.cooldowns.prodBoostActiveUntil - Date.now())}` :
       (boostReady ? "Disponible maintenant." : `Disponible dans ${formatDuration(state.cooldowns.prodBoostUntil - Date.now())}`)}</p>`;
   const boostBtn = el("button", "btn primary full", adsRemoved(state) ? "Activer" : "Regarder une pub");
@@ -306,12 +328,22 @@ function renderShopPanel() {
   boostCard.appendChild(boostBtn);
   dom.panelBody.appendChild(boostCard);
 
+  const gemsAdReady = Date.now() >= state.cooldowns.gemsAdUntil;
+  const gemsAdCard = el("div", "card compact");
+  gemsAdCard.innerHTML = `<div class="rowBetween"><h3>💎 Pub contre Gems (+${GEMS_AD_REWARD})</h3></div>
+    <p class="desc">${gemsAdReady ? "Disponible maintenant." : `Disponible dans ${formatDuration(state.cooldowns.gemsAdUntil - Date.now())}`}</p>`;
+  const gemsAdBtn = el("button", "btn primary full", adsRemoved(state) ? "Recevoir" : "Regarder une pub");
+  gemsAdBtn.disabled = !gemsAdReady;
+  gemsAdBtn.addEventListener("click", onWatchGemsAd);
+  gemsAdCard.appendChild(gemsAdBtn);
+  dom.panelBody.appendChild(gemsAdCard);
+
   dom.panelBody.appendChild(el("h3", null, "Cases & boosts (Gems)"));
   SHOP_GEM_ITEMS.forEach(item => {
-    const card = el("div", "card");
+    const card = el("div", "card compact");
     card.innerHTML = `<div class="rowBetween"><h3>${item.name}</h3><span class="tag">${item.cost} 💎</span></div>
       <p class="desc">${item.desc}</p>`;
-    const btn = el("button", "btn primary full", item.id === "skipCell" ? "Activer le mode Sauter" : "Acheter");
+    const btn = el("button", "btn primary full", "Acheter");
     btn.disabled = state.gems < item.cost;
     btn.addEventListener("click", () => onBuyGemItem(item.id));
     card.appendChild(btn);
@@ -320,16 +352,23 @@ function renderShopPanel() {
 
   dom.panelBody.appendChild(el("h3", null, "Skins cosmétiques"));
   SKINS.filter(s => s.cost > 0).forEach(skin => {
-    const owned = state.ownedSkins.includes(skin.id);
+    const owned = isSkinOwned(state, skin.id);
     const equipped = state.equippedSkin === skin.id;
-    const card = el("div", "card");
-    card.innerHTML = `<div class="rowBetween"><h3>${skin.name}</h3>
+    const card = el("div", "card compact skinCard");
+    const swatch = el("div", "skinSwatch");
+    if (skin.colors) swatch.style.background = `radial-gradient(circle at 35% 30%, ${skin.colors[0]}, ${skin.colors[1]})`;
+    if (skin.tierSkin) swatch.textContent = skin.tierSkin[5].emoji; // a representative mid-tier icon as a quick preview
+    const info = el("div", "skinCardInfo");
+    info.innerHTML = `<div class="rowBetween"><h3>${skin.name}</h3>
       ${equipped ? '<span class="tag equipped">Équipé</span>' : (owned ? '<span class="tag owned">Possédé</span>' : `<span class="tag">${skin.cost} 💎</span>`)}
-      </div>`;
+      </div>
+      ${skin.tierSkin ? `<p class="desc">Change aussi les icônes et les noms des cases (ex. ${skin.tierSkin[0].name} ${skin.tierSkin[0].emoji}, ${skin.tierSkin[3].name} ${skin.tierSkin[3].emoji}...)</p>` : ""}`;
     const btn = el("button", "btn full", equipped ? "Équipé" : (owned ? "Équiper" : "Acheter"));
     btn.disabled = equipped || (!owned && state.gems < skin.cost);
     btn.addEventListener("click", () => onSkinAction(skin.id, owned));
-    card.appendChild(btn);
+    info.appendChild(btn);
+    card.appendChild(swatch);
+    card.appendChild(info);
     dom.panelBody.appendChild(card);
   });
 
@@ -340,7 +379,7 @@ function renderShopPanel() {
     if (product.id === "remove_ads" && state.iap.removeAds) return;
     if (product.id === "stardust_boost" && state.iap.stardustBoost) return;
     if (product.skinId && state.iap.ownedSkinPacks.includes(product.skinId)) return;
-    const card = el("div", "card");
+    const card = el("div", "card compact" + (product.id === "vip_monthly" ? " vipCard" : ""));
     card.innerHTML = `<div class="rowBetween"><h3>${product.name}</h3><span class="iapPrice">${product.price}</span></div>
       ${product.desc ? `<p class="desc">${product.desc}</p>` : ""}`;
     const btn = el("button", "btn primary full", product.type === "subscription" ? "S'abonner" : "Acheter");
@@ -429,31 +468,53 @@ function renderStoryPanel() {
   const state = Game.state;
   dom.panelBody.innerHTML = "";
 
-  const card = el("div", "card");
-  card.innerHTML = `
+  const intro = el("div", "card storyCard");
+  intro.innerHTML = `
+    <div class="storyMark">☄️</div>
     <h3>La Rupture</h3>
     <p class="desc">Autrefois, le Cosmos ne connaissait pas le chaos. Neuf Dieux le
     façonnaient dans un ordre parfait. Puis, un jour, cet ordre s'est brisé.
-    Personne ne sait pourquoi. Il n'en reste qu'une poussière infinie
-    d'astéroïdes muets, dispersée dans le vide, sans but.</p>
-    <p class="desc">Les Dieux n'ont pas disparu pour autant. Ils dorment, chacun
-    enfermé dans un fragment parmi des milliards d'autres - attendant qu'une main
-    assez patiente en rapproche deux identiques pour les réveiller.</p>
-    <h3 style="margin-top:16px;">L'Étincelle, c'est toi</h3>
-    <p class="desc">Chaque fusion recompose un peu de l'ordre perdu. Météorite,
-    Lune, Planète, Étoile... jusqu'à l'Univers. Mais un Univers reconstitué ne
-    tient jamais longtemps : il finit par se replier sur lui-même. C'est le Big
-    Bang - la fin d'un cycle, et le début du suivant, toujours un peu plus loin.</p>
-    <h3 style="margin-top:16px;">Deux camps, un seul Cosmos</h3>
-    <p class="desc">Les Dieux que tu réveilles se souviennent tous de la Rupture,
-    chacun à sa manière. Les <strong>bienveillants</strong> 🕊️ veulent restaurer
-    l'ordre ancien. Les <strong>déchus</strong> 🔥 ont pris goût au chaos et
-    refusent d'y renoncer. Aucun n'a tort : la Rupture les a faits ainsi.</p>`;
-  dom.panelBody.appendChild(card);
+    <strong>Personne ne sait pourquoi.</strong> Il n'en reste qu'une poussière
+    infinie d'astéroïdes muets, dispersée dans le vide.</p>
+    <p class="desc">Les Dieux, eux, n'ont pas disparu. Ils dorment - chacun caché
+    dans un fragment parmi des milliards d'autres, attendant qu'on les retrouve.</p>`;
+  dom.panelBody.appendChild(intro);
+
+  dom.panelBody.appendChild(el("h3", null, "L'Étincelle, c'est toi"));
+  const spark = el("div", "card storyCard");
+  spark.innerHTML = `<p class="desc">Chaque fusion recompose un peu de l'ordre perdu.
+    Météorite, Lune, Planète, Étoile... jusqu'à l'Univers. Mais un Univers
+    reconstitué ne tient jamais longtemps : il finit par se replier sur
+    lui-même. C'est le Big Bang - la fin d'un cycle, et le début du suivant,
+    toujours un peu plus loin.</p>`;
+  dom.panelBody.appendChild(spark);
+
+  dom.panelBody.appendChild(el("h3", null, "Deux camps, un seul Cosmos"));
+  const camps = el("div", "card storyCard");
+  camps.innerHTML = `<p class="desc">Les Dieux que tu réveilles se souviennent tous
+  de la Rupture, mais pas de la même façon. Les <strong style="color:#93c5fd;">bienveillants</strong> 🕊️
+  veulent restaurer l'ordre ancien. Les <strong style="color:#fca5a5;">déchus</strong> 🔥
+  ont pris goût au chaos et refusent d'y renoncer. Aucun des deux n'a tort -
+  seulement un souvenir différent du même instant.</p>`;
+  dom.panelBody.appendChild(camps);
+
+  // Progressive lore: unlocked by real milestones, so there's always a next
+  // piece of "why did the Rupture happen" to chase - see LORE_FRAGMENTS.
+  const unlockedFrags = LORE_FRAGMENTS.filter(f => f.unlock(state));
+  dom.panelBody.appendChild(el("h3", null, `Fragments de mémoire (${unlockedFrags.length}/${LORE_FRAGMENTS.length})`));
+  LORE_FRAGMENTS.forEach(frag => {
+    const unlocked = frag.unlock(state);
+    const card = el("div", "card storyCard" + (unlocked ? "" : " locked"));
+    card.innerHTML = unlocked
+      ? `<h3>✨ ${frag.title}</h3><p class="desc">${frag.text}</p>`
+      : `<h3>🔒 ???</h3><p class="desc">Fragment verrouillé - continue ta progression pour le découvrir.</p>`;
+    dom.panelBody.appendChild(card);
+  });
 
   if (state.gods.currentGodId) {
     const god = getGod(state.gods.currentGodId);
-    const godCard = el("div", "card");
+    dom.panelBody.appendChild(el("h3", null, "Ton Dieu du moment"));
+    const godCard = el("div", "card storyCard");
     godCard.innerHTML = `<h3>${god.emoji} ${god.name}, ${god.title}</h3>
       <p class="desc">${god.lore}</p>`;
     dom.panelBody.appendChild(godCard);
@@ -461,6 +522,10 @@ function renderStoryPanel() {
 }
 
 // ---------------- Gods panel ----------------
+// Compact grid of tiles (was one tall card per god) - tap a tile to open
+// openGodDetailModal below, which now carries everything the old card's
+// footer used to (unlock/choose/upgrade actions), so nothing was lost, just
+// moved behind a tap for a panel that fits far more on screen at once.
 function renderGodsPanel() {
   const state = Game.state;
   dom.panelBody.innerHTML = "";
@@ -477,85 +542,22 @@ function renderGodsPanel() {
     dom.panelBody.appendChild(el("p", "desc", "Fusionne 4 Lunes en une partie pour éveiller ton premier Dieu."));
   }
 
+  const grid = el("div", "godsGrid");
   GODS.forEach(god => {
     const unlocked = isGodUnlocked(state, god.id);
     const equipped = state.gods.currentGodId === god.id;
     const queued = state.gods.nextGodId === god.id;
     const rarity = RARITY[god.rarity];
-    const level = state.gods.powerLevel[god.id] || 0;
-    const card = el("div", "godCard" + (equipped ? " equipped" : "") + (unlocked ? "" : " locked"));
-    const statusTag = equipped ? '<span class="equippedTag">En jeu</span>'
-      : (queued ? '<span class="equippedTag queued">Prochaine partie</span>' : "");
-    card.innerHTML = `
-      <div class="godTop">
-        <div class="godEmoji">${unlocked ? god.emoji : "❓"}</div>
-        <div class="godNames">
-          <div class="godName">${unlocked ? god.name : "???"}</div>
-          <div class="godTitle">${unlocked ? god.title : "Non éveillé"}</div>
-        </div>
-        <div class="godTagsCol">
-          <span class="alignTag">${god.alignment === "bienveillant" ? "🕊️" : "🔥"}</span>
-          <span class="rarityTag" style="background:${rarity.color}22;color:${rarity.color};">${rarity.label}</span>
-          ${statusTag}
-        </div>
-      </div>
-      <p class="godDesc">${unlocked ? describeGodEffect(god, level) : "Débloque ce Dieu pour découvrir son pouvoir."}</p>`;
-
-    if (unlocked) {
-      const detailsBtn = el("button", "btn ghost full godDetailsBtn", "ℹ️ Détails et histoire");
-      detailsBtn.addEventListener("click", () => openGodDetailModal(god.id));
-      card.appendChild(detailsBtn);
-    }
-
-    if (!unlocked) {
-      const info = el("div", "godUnlockInfo");
-      if (god.unlock.type === "milestone") info.textContent = "🔒 " + god.unlock.label;
-      else if (god.unlock.type === "challenge") {
-        const progress = god.unlock.challengeId === "erebus" ? state.gods.erebusStreak : 0;
-        info.textContent = `⚔️ ${god.unlock.label}` + (god.unlock.challengeId === "erebus" ? ` (${Math.min(progress, god.unlock.target)}/${god.unlock.target})` : "");
-      } else if (god.unlock.type === "shop") {
-        info.textContent = `🔒 Boutique : ${god.unlock.cost} 💎 ${god.unlock.altLabel ? "(" + god.unlock.altLabel + ")" : ""}`;
-      } else if (god.unlock.type === "box") {
-        info.textContent = "🔒 Uniquement via la Boîte Cosmique (Boutique) - pas d'autre moyen de l'éveiller";
-      } else {
-        info.textContent = "🔒 Éveille ton premier Dieu via le rituel des lunes.";
-      }
-      card.appendChild(info);
-      if (god.unlock.type === "shop") {
-        const btn = el("button", "btn primary full", `Débloquer — ${god.unlock.cost} 💎`);
-        btn.style.marginTop = "8px";
-        btn.disabled = state.gems < god.unlock.cost;
-        btn.addEventListener("click", () => onBuyGod(god.id));
-        card.appendChild(btn);
-      }
-    } else if (queued) {
-      const btn = el("button", "btn ghost full", "✕ Annuler ce choix");
-      btn.style.marginTop = "8px";
-      btn.addEventListener("click", () => onChooseGod(state.gods.currentGodId));
-      card.appendChild(btn);
-    } else if (!equipped) {
-      const btn = el("button", "btn full", "Choisir pour le prochain Big Bang");
-      btn.style.marginTop = "8px";
-      btn.addEventListener("click", () => onChooseGod(god.id));
-      card.appendChild(btn);
-    }
-
-    if (unlocked) {
-      const level = state.gods.powerLevel[god.id] || 0;
-      const maxed = level >= GOD_POWER_MAX_LEVEL;
-      const cost = maxed ? null : godPowerCost(level + 1);
-      const power = el("div", "godPower");
-      power.innerHTML = `<div class="rowBetween"><span class="godPowerLabel">Niveau de pouvoir</span><span class="skillLevel">${level}/${GOD_POWER_MAX_LEVEL}</span></div>
-        <div class="progressBar"><div class="fill" style="width:${(level / GOD_POWER_MAX_LEVEL * 100).toFixed(1)}%"></div></div>`;
-      const btn = el("button", "btn primary full", maxed ? "Niveau maximum" : `Améliorer — ${cost} 💎`);
-      btn.style.marginTop = "6px";
-      btn.disabled = maxed || state.gems < cost;
-      if (!maxed) btn.addEventListener("click", () => onBuyGodPower(god.id));
-      power.appendChild(btn);
-      card.appendChild(power);
-    }
-    dom.panelBody.appendChild(card);
+    const tile = el("button", "godTile" + (equipped ? " equipped" : "") + (unlocked ? "" : " locked"));
+    tile.style.setProperty("--rarity-color", rarity.color);
+    tile.innerHTML = `
+      ${equipped ? '<span class="godTileBadge">✓</span>' : (queued ? '<span class="godTileBadge queued">⏳</span>' : "")}
+      <div class="godTileEmoji">${unlocked ? god.emoji : "❓"}</div>
+      <div class="godTileName">${unlocked ? god.name : "???"}</div>`;
+    tile.addEventListener("click", () => openGodDetailModal(god.id));
+    grid.appendChild(tile);
   });
+  dom.panelBody.appendChild(grid);
 }
 
 // ---------------- Progression panel ----------------
@@ -640,23 +642,80 @@ function openGodDetailModal(godId) {
   const state = Game.state;
   const god = getGod(godId);
   const rarity = RARITY[god.rarity];
+  const unlocked = isGodUnlocked(state, god.id);
+  const equipped = state.gods.currentGodId === god.id;
+  const queued = state.gods.nextGodId === god.id;
   const level = state.gods.powerLevel[god.id] || 0;
-  $("godDetailCard").innerHTML = `
+  const card = $("godDetailCard");
+  card.innerHTML = `
     <div class="godTop">
-      <div class="godEmoji" style="width:52px;height:52px;font-size:26px;">${god.emoji}</div>
+      <div class="godEmoji" style="width:52px;height:52px;font-size:26px;">${unlocked ? god.emoji : "❓"}</div>
       <div class="godNames">
-        <div class="godName" style="font-size:18px;">${god.name}</div>
-        <div class="godTitle">${god.title}</div>
+        <div class="godName" style="font-size:18px;">${unlocked ? god.name : "???"}</div>
+        <div class="godTitle">${unlocked ? god.title : "Non éveillé"}</div>
       </div>
       <div class="godTagsCol">
         <span class="alignTag">${god.alignment === "bienveillant" ? "🕊️ Bienveillant" : "🔥 Déchu"}</span>
         <span class="rarityTag" style="background:${rarity.color}22;color:${rarity.color};">${rarity.label}</span>
+        ${equipped ? '<span class="equippedTag">En jeu</span>' : (queued ? '<span class="equippedTag queued">Prochaine partie</span>' : "")}
       </div>
     </div>
-    <p class="godDesc" style="font-style:italic;">${god.lore}</p>
-    <p class="godDesc"><strong>Pouvoir actuel (niveau ${level}/${GOD_POWER_MAX_LEVEL}) :</strong> ${describeGodEffect(god, level)}</p>
-    <button class="btn full" id="godDetailClose">Fermer</button>`;
-  $("godDetailClose").addEventListener("click", () => $("godDetailModal").classList.add("hidden"));
+    ${unlocked ? `<p class="godDesc" style="font-style:italic;">${god.lore}</p>
+      <p class="godDesc"><strong>Pouvoir actuel (niveau ${level}/${GOD_POWER_MAX_LEVEL}) :</strong> ${describeGodEffect(god, level)}</p>`
+      : `<p class="godDesc">Débloque ce Dieu pour découvrir son pouvoir et son histoire.</p>`}
+  `;
+
+  if (!unlocked) {
+    const info = el("div", "godUnlockInfo");
+    if (god.unlock.type === "milestone") info.textContent = "🔒 " + god.unlock.label;
+    else if (god.unlock.type === "challenge") {
+      const progress = god.unlock.challengeId === "erebus" ? state.gods.erebusStreak : 0;
+      info.textContent = `⚔️ ${god.unlock.label}` + (god.unlock.challengeId === "erebus" ? ` (${Math.min(progress, god.unlock.target)}/${god.unlock.target})` : "");
+    } else if (god.unlock.type === "shop") {
+      info.textContent = `🔒 Boutique : ${god.unlock.cost} 💎 ${god.unlock.altLabel ? "(" + god.unlock.altLabel + ")" : ""}`;
+    } else if (god.unlock.type === "box") {
+      info.textContent = "🔒 Uniquement via la Boîte Cosmique (Boutique) - pas d'autre moyen de l'éveiller";
+    } else {
+      info.textContent = "🔒 Éveille ton premier Dieu via le rituel des lunes.";
+    }
+    card.appendChild(info);
+    if (god.unlock.type === "shop") {
+      const btn = el("button", "btn primary full", `Débloquer — ${god.unlock.cost} 💎`);
+      btn.style.marginTop = "8px";
+      btn.disabled = state.gems < god.unlock.cost;
+      btn.addEventListener("click", () => { onBuyGod(god.id); openGodDetailModal(god.id); });
+      card.appendChild(btn);
+    }
+  } else if (queued) {
+    const btn = el("button", "btn ghost full", "✕ Annuler ce choix");
+    btn.style.marginTop = "8px";
+    btn.addEventListener("click", () => { onChooseGod(state.gods.currentGodId); openGodDetailModal(god.id); });
+    card.appendChild(btn);
+  } else if (!equipped) {
+    const btn = el("button", "btn full", "Choisir pour le prochain Big Bang");
+    btn.style.marginTop = "8px";
+    btn.addEventListener("click", () => { onChooseGod(god.id); openGodDetailModal(god.id); });
+    card.appendChild(btn);
+  }
+
+  if (unlocked) {
+    const maxed = level >= GOD_POWER_MAX_LEVEL;
+    const cost = maxed ? null : godPowerCost(level + 1);
+    const power = el("div", "godPower");
+    power.innerHTML = `<div class="rowBetween"><span class="godPowerLabel">Niveau de pouvoir</span><span class="skillLevel">${level}/${GOD_POWER_MAX_LEVEL}</span></div>
+      <div class="progressBar"><div class="fill" style="width:${(level / GOD_POWER_MAX_LEVEL * 100).toFixed(1)}%"></div></div>`;
+    const btn = el("button", "btn primary full", maxed ? "Niveau maximum" : `Améliorer — ${cost} 💎`);
+    btn.style.marginTop = "6px";
+    btn.disabled = maxed || state.gems < cost;
+    if (!maxed) btn.addEventListener("click", () => { onBuyGodPower(god.id); openGodDetailModal(god.id); });
+    power.appendChild(btn);
+    card.appendChild(power);
+  }
+
+  const closeBtn = el("button", "btn ghost full", "Fermer");
+  closeBtn.style.marginTop = "10px";
+  closeBtn.addEventListener("click", () => $("godDetailModal").classList.add("hidden"));
+  card.appendChild(closeBtn);
   $("godDetailModal").classList.remove("hidden");
 }
 
@@ -744,10 +803,11 @@ function endTutorial() {
 }
 
 // ---------------- Offline modal ----------------
-function openOfflineModal(gainInfo) {
+function openOfflineModal(gainInfo, spawnedCount) {
   Game.pendingOfflineGain = gainInfo;
   const capNote = gainInfo.wasCapped ? ` (plafonné à ${offlineCapHours(Game.state)}h)` : "";
-  $("offlineText").textContent = `Temps écoulé : ${formatDuration(gainInfo.cappedMs)}${capNote}\n+${formatNumber(gainInfo.gain)} Stardust`;
+  const spawnNote = spawnedCount > 0 ? `\n${spawnedCount} case(s) remplie(s) automatiquement` : "";
+  $("offlineText").textContent = `Temps écoulé : ${formatDuration(gainInfo.cappedMs)}${capNote}\n+${formatNumber(gainInfo.gain)} Stardust${spawnNote}`;
   $("offlineDouble").textContent = adsRemoved(Game.state) ? "Doubler" : "Doubler (pub)";
   $("offlineModal").classList.remove("hidden");
 }
@@ -755,6 +815,9 @@ function openOfflineModal(gainInfo) {
 // ---------------- Daily login modal ----------------
 function openDailyModal() {
   const state = Game.state;
+  const freezeNote = state.dailyLogin.streakFreezeCharges > 0
+    ? ` — ❄️ ${state.dailyLogin.streakFreezeCharges} gel(s) de série en réserve` : "";
+  $("dailyStreakLine").textContent = `🔥 Série actuelle : ${state.dailyLogin.streak} jour(s)${freezeNote}`;
   const grid = $("dailyGrid");
   grid.innerHTML = "";
   DAILY_REWARDS.forEach(r => {
@@ -811,6 +874,20 @@ function closeBigBangSummaryModal() { $("bigBangSummaryModal").classList.add("hi
 
 function openRestartModal() { $("restartModal").classList.remove("hidden"); }
 function closeRestartModal() { $("restartModal").classList.add("hidden"); }
+
+// ---------------- Stardust info popup (tapping the Stardust pill) ----------------
+function openStardustInfoModal() {
+  const state = Game.state;
+  ensureDailyStats(state);
+  const runElapsedMs = Date.now() - state.runStartedAt;
+  $("stardustInfoRunTime").textContent = formatDuration(runElapsedMs);
+  $("stardustInfoToday").textContent = "+" + formatNumber(state.lifetime.stardustEarned - state.dailyStats.stardustAtDayStart);
+  $("stardustInfoBest").textContent = state.lifetime.bestBigBangMs === null
+    ? "Pas encore de record - termine ton premier Big Bang !"
+    : formatDuration(state.lifetime.bestBigBangMs);
+  $("stardustInfoModal").classList.remove("hidden");
+}
+function closeStardustInfoModal() { $("stardustInfoModal").classList.add("hidden"); }
 
 // ---------------- Gems quick menu (tapping the Gems pill) ----------------
 function openGemsMenuModal() { $("gemsMenuModal").classList.remove("hidden"); }

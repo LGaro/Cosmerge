@@ -17,6 +17,11 @@ const FREE_PLANET_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 // of Stardust) but it's the specific relief valve for the "unlock costs feel
 // like a wall" complaint, so it should be more frequently available.
 const UNLOCK_CELL_AD_COOLDOWN_MS = 2 * 60 * 60 * 1000;
+// Deliberately short and repeatable - this is the "grind toward a specific
+// purchase" ad, not a big one-off bonus like the others above.
+const GEMS_AD_COOLDOWN_MS = 3 * 60 * 1000;
+const GEMS_AD_REWARD = 8; // 5 watches = 40 Gems = exactly the swapCells shop cost, see SHOP_GEM_ITEMS
+const VIP_DAILY_GEMS = 50;
 // Short + frequent beats long + forgettable for rewarded-ad engagement: a
 // 30 min boost gets watched once and ignored, a 10 min one stays felt and
 // is worth re-watching for well within a normal play session.
@@ -25,6 +30,10 @@ const PROD_BOOST_DURATION_MS = 10 * 60 * 1000;
 const INTERSTITIAL_MIN_GAP_MS = 3 * 60 * 1000;
 const INTERSTITIAL_QUIET_START_MS = 60 * 1000;
 const MOON_MERGES_TO_CHOOSE_GOD = 4;
+// Flat (not scaled like invokeCost) - a cheap, predictable Gems shortcut to
+// summon a Meteorite instantly. Doesn't touch manualSpawnCount, so using it
+// never makes the Stardust-priced Invoke button more expensive.
+const GEMS_INVOKE_COST = 3;
 
 const TIERS = [
   { n: 1, name: "Météorite", emoji: "☄️", from: "#8a8a8a", to: "#2b2b2b" },
@@ -42,13 +51,38 @@ const TIERS = [
 const INITIAL_UNLOCKED = [7, 8, 9, 10, 11, 13, 14, 15, 16, 17];
 
 const SKINS = [
-  { id: "default", name: "Nébuleuse par défaut", cost: 0, currency: "gems" },
+  { id: "default", name: "Nébuleuse par défaut", cost: 0, currency: "gems",
+    colors: ["#8a8a8a", "#2b2b2b"] },
   { id: "violet", name: "Nébuleuse violette", cost: 150, currency: "gems",
     colors: ["#c9a6ff", "#7c3aed"] },
   { id: "green", name: "Aurore verte", cost: 150, currency: "gems",
     colors: ["#a7f3c8", "#059669"] },
   { id: "red", name: "Supernova rouge", cost: 150, currency: "gems",
     colors: ["#ffb3a6", "#dc2626"] },
+
+  // ---- Themed skins: unlike the ambient ones above (which only recolor the
+  // tile background), these replace each tier's emoji AND name entirely via
+  // tierSkin - see renderCell()/tierStyle() in ui.js and the merge toast in
+  // input.js, which check the equipped skin's tierSkin before falling back
+  // to TIERS. Priced above the ambient skins since they change more.
+  { id: "fruits", name: "Fruits du Cosmos", cost: 300, currency: "gems",
+    colors: ["#ffb3c6", "#c2185b"],
+    tierSkin: [
+      { emoji: "🍒", name: "Cerise" }, { emoji: "🍓", name: "Fraise" },
+      { emoji: "🍇", name: "Raisin" }, { emoji: "🍊", name: "Orange" },
+      { emoji: "🍎", name: "Pomme" }, { emoji: "🍍", name: "Ananas" },
+      { emoji: "🍉", name: "Pastèque" }, { emoji: "🥥", name: "Noix de Coco" },
+      { emoji: "🍈", name: "Melon Géant" }, { emoji: "🍯", name: "Nectar Cosmique" },
+    ] },
+  { id: "legumes", name: "Légumes de l'Espace", cost: 300, currency: "gems",
+    colors: ["#a7e8a0", "#2e7d32"],
+    tierSkin: [
+      { emoji: "🫛", name: "Petit Pois" }, { emoji: "🥕", name: "Carotte" },
+      { emoji: "🍅", name: "Tomate" }, { emoji: "🌽", name: "Maïs" },
+      { emoji: "🫑", name: "Poivron" }, { emoji: "🍆", name: "Aubergine" },
+      { emoji: "🥦", name: "Brocoli" }, { emoji: "🧅", name: "Oignon" },
+      { emoji: "🎃", name: "Citrouille Géante" }, { emoji: "🌻", name: "Fleur Cosmique" },
+    ] },
 ];
 
 // ---- Skill tree (permanent, spent with Cosmic Energy) ----
@@ -193,6 +227,38 @@ const GODS = [
   },
 ];
 
+// ---- Lore fragments: progressive story reveal in the Histoire panel ----
+// The base story (renderStoryPanel) only tells you THAT the Rupture
+// happened, deliberately not why - these fragments are the "why", unlocked
+// by real progress so there's always a next piece of the mystery to chase.
+const LORE_FRAGMENTS = [
+  {
+    id: "frag_doubt", title: "Le Premier Doute",
+    unlock: (s) => !!s.gods.currentGodId,
+    text: "Séléna te le dira, si tu l'écoutes vraiment : elle n'a jamais cru à l'accident. \"Un ordre parfait ne se brise pas tout seul\", murmure-t-elle. Alors quoi - ou qui ?",
+  },
+  {
+    id: "frag_voices", title: "Les Deux Voix",
+    unlock: (s) => s.gods.unlockedIds.length >= 3,
+    text: "Chaque Dieu se souvient de la Rupture différemment - c'est ça, le vrai clivage entre bienveillants et déchus. Les uns l'ont vécue comme un vol. Les autres, comme une porte enfin ouverte. Aucun des deux souvenirs ne ment.",
+  },
+  {
+    id: "frag_echo", title: "L'Écho du Big Bang",
+    unlock: (s) => s.lifetime.bigBangCount >= 1,
+    text: "Ce que tu viens de déclencher a un nom ancien. Chaque Big Bang que tu provoques est un écho miniature de LA Rupture originelle - en plus petit, en plus doux, mais un écho tout de même. Toi aussi, tu recommences le monde.",
+  },
+  {
+    id: "frag_name", title: "Le Nom Interdit",
+    unlock: (s) => s.gods.unlockedIds.length >= 6,
+    text: "Un seul Dieu refuse d'en parler : Némésis. Pas par ignorance - par jugement. Elle seule, dit-on, sait ce qui s'est vraiment passé. Et elle seule a décidé que personne ne le méritait encore.",
+  },
+  {
+    id: "frag_truth", title: "La Vérité",
+    unlock: (s) => s.achievements.unlockedIds.length >= ACHIEVEMENTS.length,
+    text: "La Rupture n'était pas un accident, ni une attaque. C'était une question - posée par un Cosmos trop parfait pour savoir s'il méritait de durer. Chaque fusion que tu accomplis est une réponse. La tienne, jusqu'ici, a toujours été oui.",
+  },
+];
+
 // ---- Daily login cycle (7 days) ----
 const DAILY_REWARDS = [
   { day: 1, type: "stardust", amount: 100, label: "100 ✨" },
@@ -268,7 +334,8 @@ const ACHIEVEMENTS = [
 // ---- Shop catalog (soft currency: stardust / gems) ----
 const SHOP_GEM_ITEMS = [
   { id: "skipCell", name: "Sauter une case", desc: "Débloque instantanément n'importe quelle case verrouillée", cost: 25 },
-  { id: "fusionExpress", name: "Fusion Express", desc: "Fusionne automatiquement toutes les paires possibles", cost: 15 },
+  { id: "fusionExpress", name: "Fusion Express", desc: "Fusionne automatiquement toutes les paires adjacentes déjà identiques (ne déplace pas les cases - utile après une invocation, pas pour débloquer une grille sans paire adjacente)", cost: 15 },
+  { id: "swapCells", name: "Échanger deux cases", desc: "Permute le contenu de deux cases au choix - le moyen de créer une fusion quand aucune paire adjacente n'existe", cost: 40 },
   { id: "streakFreeze", name: "Gel de série", desc: "Protège ta série de connexion pendant 1 jour manqué", cost: 20 },
   { id: "cosmicBox", name: "Boîte Cosmique", desc: "Un Dieu au hasard (les Dieux rares sont plus rares) - un doublon se change en Gems", cost: 120 },
 ];
@@ -288,7 +355,8 @@ const IAP_CATALOG = [
   { id: "gems_medium", type: "consumable", name: "550 Gems (+10%)", price: "4,99 $", amount: 550 },
   { id: "gems_large", type: "consumable", name: "1200 Gems (+20%)", price: "9,99 $", amount: 1200 },
   { id: "gems_mega", type: "consumable", name: "3000 Gems (+35%)", price: "19,99 $", amount: 3000 },
-  { id: "vip_monthly", type: "subscription", name: "Pass Supernova", price: "6,99 $/mois", desc: "Sans pubs, +50% production, skins exclusifs, plafond hors-ligne x2." },
+  { id: "vip_monthly", type: "subscription", name: "Pass Supernova", price: "6,99 $/mois",
+    desc: "✅ Aucune publicité, jamais\n✅ +100% de production de Stardust\n✅ Débloque tous les skins (y compris les thématiques)\n✅ Double la durée maximale de gains hors-ligne (jusqu'à 48h d'absence couverte au lieu de 24h)\n✅ 50 Gems offertes chaque jour" },
   { id: "skin_pack_violet", type: "nonconsumable", name: "Pack skin Nébuleuse violette", price: "1,99 $", skinId: "violet" },
   { id: "skin_pack_green", type: "nonconsumable", name: "Pack skin Aurore verte", price: "1,99 $", skinId: "green" },
   { id: "skin_pack_red", type: "nonconsumable", name: "Pack skin Supernova rouge", price: "1,99 $", skinId: "red" },

@@ -52,6 +52,7 @@ function defaultState() {
 
     runStardustEarned: 0,
     maxTierThisRun: 1,
+    runStartedAt: Date.now(), // reset at every Big Bang/restart - see performBigBang/restartRun
 
     lifetime: {
       stardustEarned: 0,
@@ -60,7 +61,10 @@ function defaultState() {
       maxTierEver: 1,
       bigBangCount: 0,
       adsWatched: 0, // rewarded ads actually watched (excludes ones skipped via adsRemoved) - see input.js watchRewardedAd
+      bestBigBangMs: null, // fastest time-to-Big-Bang ever recorded, see performBigBang
     },
+
+    dailyStats: { date: null, stardustAtDayStart: 0 }, // see ensureDailyStats() - powers the Stardust info popup's "today" figure
 
     skills: { prod: 0, swarm: 0, gravity: 0, echo: 0, luck: 0 },
     ownedSkins: ["default"],
@@ -86,10 +90,10 @@ function defaultState() {
     },
     moonMergesThisRun: 0, // toward MOON_MERGES_TO_CHOOSE_GOD (first-god ritual)
 
-    cooldowns: { freePlanetUntil: 0, prodBoostUntil: 0, prodBoostActiveUntil: 0, unlockCellAdUntil: 0 },
+    cooldowns: { freePlanetUntil: 0, prodBoostUntil: 0, prodBoostActiveUntil: 0, unlockCellAdUntil: 0, gemsAdUntil: 0 },
     dailySpin: { date: null, freeUsed: false, bonusUsed: false },
 
-    iap: { removeAds: false, vipUntil: 0, ownedSkinPacks: [], stardustBoost: false },
+    iap: { removeAds: false, vipUntil: 0, ownedSkinPacks: [], stardustBoost: false, vipLastGemsDay: null },
 
     settings: { sound: true, music: true, notifications: true },
     firstPlayedDay: todayStr(),
@@ -173,7 +177,7 @@ function importSaveCode(code) {
 
 function productionMultiplier(state) {
   const skillMult = 1 + state.skills.prod * 0.03;
-  const vipMult = isVipActive(state) ? 1.5 : 1;
+  const vipMult = isVipActive(state) ? 2 : 1;
   const boostMult = (state.cooldowns.prodBoostActiveUntil > Date.now()) ? 2 : 1;
   const godMult = getGodEffects(state).prodMult || 1;
   const iapBoostMult = state.iap.stardustBoost ? 1.5 : 1;
@@ -195,6 +199,17 @@ function totalProduction(state) {
 
 function isVipActive(state) { return state.iap.vipUntil > Date.now(); }
 function adsRemoved(state) { return state.iap.removeAds || isVipActive(state); }
+// VIP's "débloque tous les skins" perk is a subscription benefit, not a
+// permanent grant - it must stop working the moment vipUntil lapses, so it's
+// checked here rather than pushed into ownedSkins (which never expires).
+function isSkinOwned(state, skinId) { return state.ownedSkins.includes(skinId) || isVipActive(state); }
+
+// ---- Daily stats (Stardust info popup's "aujourd'hui" figure) ----
+function ensureDailyStats(state) {
+  if (state.dailyStats.date !== todayStr()) {
+    state.dailyStats = { date: todayStr(), stardustAtDayStart: state.lifetime.stardustEarned };
+  }
+}
 
 function offlineCapHours(state) {
   const godBonus = getGodEffects(state).offlineCapBonusH || 0;

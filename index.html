@@ -16,14 +16,14 @@
 <!-- og:image/twitter:image must be an ABSOLUTE URL (https://votre-domaine/social-share.png)
      once this is deployed to a real host - relative paths don't work for link-preview crawlers
      (WhatsApp, iMessage, etc). The source image is generated in assets/social-share-source.html. -->
-<link rel="stylesheet" href="css/style.css?v=15">
+<link rel="stylesheet" href="css/style.css?v=16">
 </head>
 <body>
 <div id="starsBg"></div>
 
 <div class="app">
   <header class="topbar">
-    <div class="currency stardust">
+    <div class="currency stardust" id="stardustPill">
       <span class="icon">✨</span>
       <span class="value" id="stardustValue">0</span>
       <span class="rate" id="stardustRate">+0/s</span>
@@ -46,7 +46,8 @@
     <button class="fab hidden" id="fabWheel"><span class="fabIcon">🎡</span><span class="fabLabel">Roue</span></button>
     <button class="fab" id="fabFreePlanet"><span class="fabIcon">🌍</span><span class="fabLabel">Planète gratuite</span></button>
     <button class="fab" id="fabUnlockCellAd"><span class="fabIcon">🔓</span><span class="fabLabel">Case gratuite</span></button>
-    <button class="fab" id="fabBoost"><span class="fabIcon">🚀</span><span class="fabLabel" id="fabBoostLabel">Boost x2</span></button>
+    <button class="fab featured" id="fabBoost"><span class="fabIcon">🚀</span><span class="fabLabel" id="fabBoostLabel">Boost x2</span></button>
+    <button class="fab featured" id="fabGemsAd"><span class="fabIcon">💎</span><span class="fabLabel" id="fabGemsAdLabel">Pub</span></button>
     <button class="fab muted" id="fabRestart" aria-label="Recommencer la partie"><span class="fabIcon">🔄</span></button>
   </div>
 
@@ -54,6 +55,7 @@
     <button class="btn primary" id="invokeBtn">
       <span>Invoquer</span><span class="cost" id="invokeCost">15</span>✨
     </button>
+    <button class="btn gemInvoke" id="invokeGemsBtn" aria-label="Invoquer avec des Gems">💎 3</button>
     <button class="btn bigbang hidden" id="bigBangBtn">💥 Big Bang</button>
     <div class="hint" id="selectionHint"></div>
   </div>
@@ -77,13 +79,13 @@
         <div class="drawerSubtitle" id="drawerLevel">Niveau Cosmique 0</div>
       </div>
     </button>
-    <button class="drawerItem" data-panel="shop"><span class="drawerIcon">🛒</span><span>Boutique</span></button>
-    <button class="drawerItem" data-panel="gods"><span class="drawerIcon">🔱</span><span>Dieux du Cosmos</span></button>
-    <button class="drawerItem" data-panel="skills"><span class="drawerIcon">⚡</span><span>Ascension</span></button>
-    <button class="drawerItem" data-panel="story"><span class="drawerIcon">📖</span><span>Histoire</span></button>
     <button class="drawerItem" data-panel="progression"><span class="drawerIcon">🗺️</span><span>Progression</span></button>
     <button class="drawerItem" data-panel="quests"><span class="drawerIcon">📜</span><span>Quêtes</span><span class="notifDot hidden" id="questsNotifDot"></span></button>
+    <button class="drawerItem" data-panel="gods"><span class="drawerIcon">🔱</span><span>Dieux du Cosmos</span></button>
+    <button class="drawerItem" data-panel="skills"><span class="drawerIcon">⚡</span><span>Ascension</span></button>
     <button class="drawerItem" data-panel="achievements"><span class="drawerIcon">🏆</span><span>Succès</span></button>
+    <button class="drawerItem" data-panel="story"><span class="drawerIcon">📖</span><span>Histoire</span></button>
+    <button class="drawerItem" data-panel="shop"><span class="drawerIcon">🛒</span><span>Boutique</span></button>
     <button class="drawerItem" data-panel="settings"><span class="drawerIcon">⚙️</span><span>Réglages</span></button>
     <button class="drawerItem close" id="drawerClose"><span class="drawerIcon">✕</span><span>Fermer</span></button>
   </nav>
@@ -129,6 +131,7 @@
 <div class="modalOverlay hidden" id="dailyModal">
   <div class="modalCard">
     <h3>Connexion quotidienne</h3>
+    <p id="dailyStreakLine" class="desc"></p>
     <div class="dailyGrid" id="dailyGrid"></div>
     <div class="modalBtns">
       <button class="btn primary" id="dailyClaim">Récupérer</button>
@@ -186,6 +189,17 @@
       <button class="btn" id="restartCancel">Annuler</button>
       <button class="btn danger" id="restartConfirm">Recommencer</button>
     </div>
+  </div>
+</div>
+
+<!-- Stardust info popup: tapping the Stardust pill -->
+<div class="modalOverlay hidden" id="stardustInfoModal">
+  <div class="modalCard">
+    <h3>✨ Ta grille</h3>
+    <p class="rowBetween"><span>Grille démarrée depuis</span><strong id="stardustInfoRunTime">-</strong></p>
+    <p class="rowBetween"><span>Généré aujourd'hui</span><strong id="stardustInfoToday">-</strong></p>
+    <p class="rowBetween"><span>🏆 Votre meilleur temps (Big Bang)</span><strong id="stardustInfoBest">-</strong></p>
+    <button class="btn full" id="stardustInfoClose" style="margin-top:10px;">Fermer</button>
   </div>
 </div>
 
@@ -257,15 +271,15 @@
   </div>
 </div>
 
-<script src="js/config.js?v=15"></script>
-<script src="js/state.js?v=15"></script>
-<script src="js/audio.js?v=15"></script>
-<script src="js/services.js?v=15"></script>
-<script src="js/economy.js?v=15"></script>
-<script src="js/gods.js?v=15"></script>
-<script src="js/retention.js?v=15"></script>
-<script src="js/ui.js?v=15"></script>
-<script src="js/input.js?v=15"></script>
-<script src="js/main.js?v=15"></script>
+<script src="js/config.js?v=16"></script>
+<script src="js/state.js?v=16"></script>
+<script src="js/audio.js?v=16"></script>
+<script src="js/services.js?v=16"></script>
+<script src="js/economy.js?v=16"></script>
+<script src="js/gods.js?v=16"></script>
+<script src="js/retention.js?v=16"></script>
+<script src="js/ui.js?v=16"></script>
+<script src="js/input.js?v=16"></script>
+<script src="js/main.js?v=16"></script>
 </body>
 </html>

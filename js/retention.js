@@ -78,6 +78,14 @@ function trackRewardedAdWatched(state) {
   return state.lifetime.adsWatched === 5;
 }
 
+// ---- VIP daily Gems (Pass Supernova perk) ----
+function grantVipDailyGemsIfDue(state) {
+  if (!isVipActive(state)) return 0;
+  if (state.iap.vipLastGemsDay === todayStr()) return 0;
+  state.iap.vipLastGemsDay = todayStr();
+  return grantGems(state, VIP_DAILY_GEMS);
+}
+
 // ---- Daily login ----
 function isDailyLoginAvailable(state) {
   return state.dailyLogin.lastClaimDay !== todayStr();

@@ -17,7 +17,7 @@ function createGhost(tier, x, y) {
   const g = document.createElement("div");
   g.className = "ghostTile";
   g.style.cssText += tierStyle(tier);
-  g.innerHTML = `<span class="emoji">${TIERS[tier - 1].emoji}</span>`;
+  g.innerHTML = `<span class="emoji">${tierEmoji(tier)}</span>`;
   g.style.left = x + "px"; g.style.top = y + "px";
   document.body.appendChild(g);
   return g;
@@ -51,6 +51,7 @@ function onPointerMove(e) {
   const pos = localPos(e);
   const dx = pos.x - pointerState.startX, dy = pos.y - pointerState.startY;
   if (!pointerState.dragging && Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+    if (Game.swapArmed) return; // swap mode is tap-only, see handleSwapTap
     const tileData = Game.state.grid[pointerState.idx];
     if (!tileData) return;
     pointerState.dragging = true;
@@ -90,7 +91,38 @@ function onPointerUp(e) {
   handleTap(idx);
 }
 
+// Two-tap flow for the "Échanger deux cases" shop item: Gems are only
+// charged once a second, different, unlocked cell is chosen (see
+// buyGemShopItem's "swapCells" case in economy.js) - tapping the first cell
+// again cancels the pick rather than charging for a no-op swap with itself.
+function handleSwapTap(idx) {
+  const state = Game.state;
+  if (!state.unlocked[idx]) { toast("Choisis deux cases débloquées."); Sfx.error(); return; }
+  if (Game.swapFirstIdx === null) {
+    Game.swapFirstIdx = idx;
+    selectCell(idx);
+    toast("Choisis la seconde case à échanger.");
+    return;
+  }
+  if (Game.swapFirstIdx === idx) {
+    Game.swapFirstIdx = null;
+    clearSelection();
+    toast("Sélection annulée. Choisis une case à échanger.");
+    return;
+  }
+  const idxA = Game.swapFirstIdx, idxB = idx;
+  const result = buyGemShopItem(state, "swapCells", { idxA, idxB });
+  Game.swapArmed = false;
+  Game.swapFirstIdx = null;
+  clearSelection();
+  if (result.ok) { Sfx.purchase(); toast("Cases échangées !"); }
+  else { Sfx.error(); toast(result.reason === "funds" ? "Pas assez de Gems." : "Échange impossible."); }
+  renderAll();
+  saveState(state);
+}
+
 function handleTap(idx) {
+  if (Game.swapArmed) { handleSwapTap(idx); return; }
   const state = Game.state;
   const tileHere = state.grid[idx];
 
@@ -113,6 +145,7 @@ function handleTap(idx) {
 
 function handleLockedTap(idx) {
   const state = Game.state;
+  if (Game.swapArmed) { toast("Choisis deux cases débloquées pour l'échange."); Sfx.error(); return; }
   if (Game.skipCellArmed) {
     const result = buyGemShopItem(state, "skipCell", { cellIndex: idx });
     Game.skipCellArmed = false;
@@ -138,7 +171,7 @@ function attemptMerge(fromIdx, toIdx) {
   HapticService.impact(result.newTier >= 8 ? "heavy" : "medium");
   if (result.gemBonus) toast("+1 💎 Gem bonus !");
   if (result.newTier === TIERS.length) toast("Univers créé ! 💥");
-  else toast(TIERS[result.newTier - 1].name + " " + TIERS[result.newTier - 1].emoji + " !");
+  else toast(tierName(result.newTier) + " " + tierEmoji(result.newTier) + " !");
   updateHeader();
   updateFabs();
   saveState(state);
@@ -211,6 +244,25 @@ function doInvoke() {
   }
   spendStardust(state, cost);
   state.manualSpawnCount += 1;
+  state.grid[target] = { tier: 1 };
+  renderCell(target, { spawned: true });
+  Sfx.spawn();
+  updateQuestProgress(state, "invokes", 1);
+  clearSelection();
+  updateHeader();
+  saveState(state);
+}
+
+function doInvokeWithGems() {
+  const state = Game.state;
+  if (state.gems < GEMS_INVOKE_COST) { toast("Pas assez de Gems."); Sfx.error(); return; }
+  let target = (Game.selectedIdx !== null && state.unlocked[Game.selectedIdx] && !state.grid[Game.selectedIdx]) ? Game.selectedIdx : null;
+  if (target === null) {
+    const empties = emptyUnlockedIndices(state);
+    if (empties.length === 0) { toast("La grille est pleine !"); Sfx.error(); return; }
+    target = empties[Math.floor(Math.random() * empties.length)];
+  }
+  state.gems -= GEMS_INVOKE_COST;
   state.grid[target] = { tier: 1 };
   renderCell(target, { spawned: true });
   Sfx.spawn();
@@ -434,6 +486,25 @@ async function onUnlockCellAd() {
   saveState(state);
 }
 
+// ---------------- Gems-for-ad (shop + home screen) ----------------
+async function onWatchGemsAd() {
+  const state = Game.state;
+  if (Date.now() < state.cooldowns.gemsAdUntil) {
+    toast("Disponible dans " + formatDuration(state.cooldowns.gemsAdUntil - Date.now()));
+    return;
+  }
+  if (!adsRemoved(state)) toast("📺 Chargement de la publicité...");
+  const ok = await watchRewardedAd(state, "gems_ad");
+  if (!ok) return;
+  const granted = grantGemsFromAd(state);
+  Sfx.purchase();
+  toast(`+${granted} 💎 !`);
+  refreshCurrentPanel();
+  updateHeader();
+  updateFabs();
+  saveState(state);
+}
+
 // ---------------- Shop / IAP / skills / quests handlers ----------------
 async function onWatchProdBoostAd() {
   const state = Game.state;
@@ -459,6 +530,15 @@ function onBuyGemItem(itemId) {
     Game.skipCellArmed = true;
     closePanel();
     toast("Tape une case verrouillée à débloquer avec des Gems.");
+    renderAll();
+    return;
+  }
+  if (itemId === "swapCells") {
+    if (Game.state.gems < SHOP_GEM_ITEMS.find(i => i.id === "swapCells").cost) { Sfx.error(); toast("Pas assez de Gems."); return; }
+    Game.swapArmed = true;
+    Game.swapFirstIdx = null;
+    closePanel();
+    toast("Choisis deux cases à échanger.");
     renderAll();
     return;
   }
@@ -623,6 +703,7 @@ function wireEvents() {
   document.addEventListener("touchstart", onPointerDown, { passive: false });
 
   dom.invokeBtn.addEventListener("click", () => { ensureAudio(); doInvoke(); });
+  $("invokeGemsBtn").addEventListener("click", () => { ensureAudio(); doInvokeWithGems(); });
   dom.bigBangBtn.addEventListener("click", () => openBigBangModal());
   dom.menuBtn.addEventListener("click", () => openDrawer());
   dom.drawerClose.addEventListener("click", closeDrawer);
@@ -641,9 +722,12 @@ function wireEvents() {
   $("fabUnlockCellAd").addEventListener("click", onUnlockCellAd);
   $("fabCurrentGod").addEventListener("click", () => openPanel("gods"));
   $("fabRestart").addEventListener("click", openRestartModal);
+  $("fabGemsAd").addEventListener("click", onWatchGemsAd);
 
   dom.energyPill.addEventListener("click", () => openPanel("skills"));
   $("gemsPill").addEventListener("click", openGemsMenuModal);
+  $("stardustPill").addEventListener("click", openStardustInfoModal);
+  $("stardustInfoClose").addEventListener("click", closeStardustInfoModal);
   $("gemsMenuShop").addEventListener("click", () => { closeGemsMenuModal(); openPanel("shop"); });
   $("gemsMenuGods").addEventListener("click", () => { closeGemsMenuModal(); openPanel("gods"); });
   $("gemsMenuClose").addEventListener("click", closeGemsMenuModal);

@@ -42,7 +42,7 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
 .currency.gems .value{color:var(--gems);}
 .currency.energy .value{color:var(--energy);}
 .currency.energy{flex:0 0 auto;}
-.currency.gems,.currency.energy{cursor:pointer;}
+.currency.gems,.currency.energy,.currency.stardust{cursor:pointer;}
 /* The owned amount (.value) must never truncate - it's the number that
    actually matters. If the pill runs out of room, the secondary "+X/s"
    rate text is what shrinks/ellipsizes instead (previously the reverse:
@@ -54,6 +54,7 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
 .iconBtn:active{transform:scale(.92);}
 
 .toolbar{display:flex;align-items:center;gap:8px;margin-bottom:8px;min-height:40px;flex-wrap:wrap;}
+.btn.gemInvoke{flex:0 0 auto;padding:10px 12px;background:linear-gradient(180deg,#1a3a4a,#0d2530);border:1px solid #22d3ee55;color:var(--gems);font-weight:800;}
 .btn{appearance:none;border:1px solid #322a5e;border-radius:12px;padding:10px 14px;font-size:14px;font-weight:700;
   color:var(--text);background:linear-gradient(180deg,#2a2452,#201a42);display:flex;align-items:center;gap:6px;
   box-shadow:0 2px 8px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.05);
@@ -120,6 +121,11 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
 .fab:disabled{opacity:.4;}
 .fab.muted{opacity:.5;padding:8px 11px;background:linear-gradient(180deg,#1c1838,#151230);}
 .fab.muted:active{opacity:.85;}
+/* The two ad-for-currency fabs (boost, gems) are the ones we most want
+   watched, per explicit request to make them stand out from the rest of
+   the row rather than blend in as just another same-weight button. */
+.fab.featured{border-width:2px;padding:9px 15px;font-size:14px;
+  box-shadow:0 0 0 2px #22d3ee33, 0 4px 14px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.08);}
 
 /* 50px matches the standard AdMob/IAB mobile banner (320x50 pt) this placeholder stands in for. */
 .bannerAd{height:50px;background:#1a1533;border:1px dashed #3a3070;border-radius:8px;display:flex;
@@ -185,8 +191,21 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
   algorithm crush it below content size when the list is long - this guards every panel section against that trap */
 
 .card{background:var(--bg-card);border:1px solid #2a2450;border-radius:14px;padding:15px;box-sizing:border-box;}
+.card.compact{padding:10px 12px;}
+.card.compact h3{font-size:13px;}
+.card.compact p.desc{font-size:11px;margin-bottom:6px;}
 .card h3{margin:0 0 4px;font-size:14px;}
-.card p.desc{margin:0 0 8px;font-size:12px;color:var(--text-dim);line-height:1.4;}
+.skinCard{display:flex;gap:10px;align-items:flex-start;}
+.skinSwatch{width:44px;height:44px;border-radius:12px;flex-shrink:0;border:1px solid #2a2450;
+  display:flex;align-items:center;justify-content:center;font-size:20px;}
+.skinCardInfo{flex:1;min-width:0;}
+.vipCard{border-color:var(--stardust);box-shadow:0 0 0 1px var(--stardust) inset, 0 0 16px #f7b73333;}
+.storyCard{position:relative;background:linear-gradient(160deg,#1a1640,#141130);border-color:#3a3070;}
+.storyCard h3{font-size:14px;color:#e8e4ff;}
+.storyCard.locked{opacity:.5;}
+.storyCard.locked h3{color:var(--text-dim);}
+.storyMark{position:absolute;top:10px;right:14px;font-size:34px;opacity:.12;pointer-events:none;}
+.card p.desc{margin:0 0 8px;font-size:12px;color:var(--text-dim);line-height:1.5;white-space:pre-line;}
 .card .rowBetween,.modalCard .rowBetween{display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .tag{font-size:10px;padding:2px 7px;border-radius:8px;background:#2a2450;color:var(--text-dim);}
 .tag.owned{background:#134e2c;color:var(--success);}
@@ -219,7 +238,7 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
 .modalCard,.tutCard{background:var(--bg-panel);border:1px solid #3a3070;border-radius:16px;padding:18px;max-width:420px;width:100%;
   box-shadow:0 10px 40px rgba(0,0,0,.5);max-height:80vh;overflow-y:auto;}
 .modalCard h3,.tutCard h3{margin:0 0 8px;font-size:17px;color:var(--accent2);}
-.modalCard p{margin:0 0 10px;font-size:13px;line-height:1.5;color:var(--text-dim);}
+.modalCard p{margin:0 0 10px;font-size:13px;line-height:1.5;color:var(--text-dim);white-space:pre-line;}
 .modalCard .modalWarn{color:#fca5a5;font-size:11px;}
 .modalBtns{display:flex;gap:8px;margin-top:10px;}
 .modalBtns .btn{flex:1;justify-content:center;}
@@ -272,11 +291,24 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
 .cell.skipArmed{outline:2px dashed var(--gems);outline-offset:-2px;}
 
 /* Gods of the Cosmos */
-.godCard{background:var(--bg-card);border:1px solid #2a2450;border-radius:14px;padding:12px;position:relative;
-  overflow:hidden;flex-shrink:0;}
-.godCard.equipped{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2) inset, 0 0 18px #22d3ee33;}
-.godCard.locked{opacity:.55;}
-.godCard .godTop{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+/* Compact grid replacing one full card per god (renderGodsPanel) - tapping a
+   tile opens openGodDetailModal, which still uses godTop/godEmoji/godNames/
+   godTagsCol/godDesc below (those rules are no longer scoped under .godCard
+   since that wrapper doesn't exist in the DOM anymore). */
+.godsGrid{display:grid;grid-template-columns:repeat(4, 1fr);gap:8px;}
+.godTile{position:relative;aspect-ratio:1;background:var(--bg-card);border:2px solid var(--rarity-color, #2a2450);
+  border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  appearance:none;color:var(--text);padding:6px;overflow:hidden;}
+.godTile:active{transform:scale(.95);}
+.godTile.locked{opacity:.5;border-color:#2a2450;}
+.godTile.equipped{box-shadow:0 0 0 1px var(--accent2) inset, 0 0 14px #22d3ee44;}
+.godTileEmoji{font-size:26px;line-height:1;}
+.godTileName{font-size:10px;font-weight:700;text-align:center;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+.godTileBadge{position:absolute;top:4px;right:4px;font-size:11px;background:#0d2a30;color:var(--accent2);
+  width:16px;height:16px;border-radius:5px;display:flex;align-items:center;justify-content:center;}
+.godTileBadge.queued{background:#3a2a0d;color:var(--stardust);}
+
+.godTop{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
 .godEmoji{width:42px;height:42px;border-radius:12px;background:#1a1640;display:flex;align-items:center;
   justify-content:center;font-size:22px;flex-shrink:0;border:1px solid #2a2450;}
 .godNames{flex:1;min-width:0;}
@@ -287,10 +319,9 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
 .alignTag{font-size:14px;}
 .godDesc{font-size:12px;color:#c9c3f0;margin:6px 0;line-height:1.4;}
 .godUnlockInfo{font-size:11px;color:var(--text-dim);margin-top:6px;}
-.godCard .equippedTag{font-size:9px;font-weight:800;color:var(--accent2);
+.equippedTag{font-size:9px;font-weight:800;color:var(--accent2);
   background:#0d2a30;padding:2px 8px;border-radius:8px;text-transform:uppercase;white-space:nowrap;}
-.godCard .equippedTag.queued{color:var(--stardust);background:#3a2a0d;}
-.godDetailsBtn{margin-top:8px;}
+.equippedTag.queued{color:var(--stardust);background:#3a2a0d;}
 .godPower{margin-top:10px;padding-top:10px;border-top:1px solid #2a2450;}
 .godPowerLabel{font-size:11px;color:var(--text-dim);}
 

@@ -47,6 +47,8 @@ function requestStorageAccessBestEffort() {
     sessionStart: Date.now(),
     lastInterstitial: 0,
     skipCellArmed: false,
+    swapArmed: false,
+    swapFirstIdx: null,
     pendingOfflineGain: null,
     bigBangPromptShown: hasUniverseTile(state), // don't re-prompt on reload if a Universe tile already existed last save
   });
@@ -57,11 +59,13 @@ function requestStorageAccessBestEffort() {
 
   ensureDailyQuests(state);
   ensureDailySpin(state);
+  ensureDailyStats(state);
+  grantVipDailyGemsIfDue(state);
   checkAchievements(state);
   checkGodMilestones(state);
 
   const gainInfo = computeOfflineGain(state, Date.now());
-  applyOfflineAutoSpawns(state, gainInfo.cappedMs);
+  const spawnedAtBoot = applyOfflineAutoSpawns(state, gainInfo.cappedMs);
 
   renderAll();
 
@@ -69,7 +73,7 @@ function requestStorageAccessBestEffort() {
     $("tutOverlay").classList.remove("hidden");
     showTutStep(0);
   } else if (gainInfo.gain >= 1) {
-    openOfflineModal(gainInfo);
+    openOfflineModal(gainInfo, spawnedAtBoot);
   }
 
   let lastFrame = performance.now();
@@ -122,10 +126,12 @@ function requestStorageAccessBestEffort() {
     }
     unmuteAllAudio();
     if (Game.settings.music) MusicService.start();
+    ensureDailyStats(Game.state);
+    grantVipDailyGemsIfDue(Game.state);
     const info = computeOfflineGain(Game.state, Date.now());
     const spawned = applyOfflineAutoSpawns(Game.state, info.cappedMs);
     if (spawned > 0) renderAll();
-    if (info.gain >= 1) openOfflineModal(info);
+    if (info.gain >= 1) openOfflineModal(info, spawned);
     lastFrame = performance.now();
   });
 })();
