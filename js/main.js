@@ -105,5 +105,17 @@ function requestStorageAccessBestEffort() {
   window.addEventListener("pagehide", () => saveState(Game.state));
   window.addEventListener("beforeunload", () => saveState(Game.state));
   window.addEventListener("blur", () => saveState(Game.state));
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") saveState(Game.state); });
+  // Offline gains were only ever computed once, at the very first page load.
+  // Backgrounding the tab/app (switching apps, locking the phone) without a
+  // full reload never re-ran that check - and the main loop's frame() clamps
+  // dt to 0.25s specifically to survive a brief pause without a huge single
+  // tick, which as a side effect silently discarded any longer time spent
+  // away instead of crediting it. This computes the catch-up on resume too,
+  // and resets lastFrame so the next tick doesn't also try to claim that gap.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") { saveState(Game.state); return; }
+    const info = computeOfflineGain(Game.state, Date.now());
+    if (info.gain >= 1) openOfflineModal(info);
+    lastFrame = performance.now();
+  });
 })();
