@@ -179,7 +179,7 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
 .card{background:var(--bg-card);border:1px solid #2a2450;border-radius:14px;padding:15px;box-sizing:border-box;}
 .card h3{margin:0 0 4px;font-size:14px;}
 .card p.desc{margin:0 0 8px;font-size:12px;color:var(--text-dim);line-height:1.4;}
-.card .rowBetween{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.card .rowBetween,.modalCard .rowBetween{display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .tag{font-size:10px;padding:2px 7px;border-radius:8px;background:#2a2450;color:var(--text-dim);}
 .tag.owned{background:#134e2c;color:var(--success);}
 .tag.equipped{background:#3730a3;color:#c7d2fe;}
@@ -291,7 +291,7 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
   display:flex;align-items:center;gap:12px;text-align:left;appearance:none;color:var(--text);width:100%;}
 .godRitualCard:active{transform:scale(.98);}
 
-.progressCard .rowBetween{margin-bottom:4px;}
+.progressCard .rowBetween,.modalCard .rowBetween{margin-bottom:4px;}
 .roadmap{position:relative;padding:4px;}
 /* line sits at the icon's horizontal center (padding + icon radius) so it visibly
    runs behind each node's icon, not floating disconnected in empty space */

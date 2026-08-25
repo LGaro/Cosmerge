@@ -422,26 +422,23 @@ function renderStoryPanel() {
   const card = el("div", "card");
   card.innerHTML = `
     <h3>La Rupture</h3>
-    <p class="desc">Il y eut un temps où le Cosmos ne connaissait pas le mot « chaos ».
-    Un ordre parfait le régissait, tenu par une poignée de Dieux qui en étaient à la
-    fois les gardiens et l'incarnation. Puis vint la Rupture — nul ne sait si elle fut
-    un accident ou un choix — et cet ordre se brisa en une poussière infinie
-    d'astéroïdes muets, dérivant sans but dans le vide.</p>
-    <p class="desc">Les Dieux ne moururent pas. Ils se dispersèrent, endormis, chacun
-    au cœur d'un fragment parmi des milliards d'autres, attendant qu'une conscience
-    assez patiente pour rapprocher deux fragments identiques les réveille un jour.</p>
-    <h3 style="margin-top:16px;">L'Étincelle</h3>
-    <p class="desc">Cette conscience, c'est toi. Chaque fusion recompose un peu de
-    l'ordre perdu ; chaque palier franchi — Lune, Planète, Étoile, jusqu'à
-    l'Univers — rapproche le Cosmos de ce qu'il fut. Mais un Univers reconstitué ne
-    peut que se replier sur lui-même : c'est le Big Bang, la fin d'un cycle et le
-    début du suivant, un peu plus vite, un peu plus loin à chaque fois.</p>
+    <p class="desc">Autrefois, le Cosmos ne connaissait pas le chaos. Neuf Dieux le
+    façonnaient dans un ordre parfait. Puis, un jour, cet ordre s'est brisé.
+    Personne ne sait pourquoi. Il n'en reste qu'une poussière infinie
+    d'astéroïdes muets, dispersée dans le vide, sans but.</p>
+    <p class="desc">Les Dieux n'ont pas disparu pour autant. Ils dorment, chacun
+    enfermé dans un fragment parmi des milliards d'autres - attendant qu'une main
+    assez patiente en rapproche deux identiques pour les réveiller.</p>
+    <h3 style="margin-top:16px;">L'Étincelle, c'est toi</h3>
+    <p class="desc">Chaque fusion recompose un peu de l'ordre perdu. Météorite,
+    Lune, Planète, Étoile... jusqu'à l'Univers. Mais un Univers reconstitué ne
+    tient jamais longtemps : il finit par se replier sur lui-même. C'est le Big
+    Bang - la fin d'un cycle, et le début du suivant, toujours un peu plus loin.</p>
     <h3 style="margin-top:16px;">Deux camps, un seul Cosmos</h3>
-    <p class="desc">Certains Dieux réveillés se souviennent de l'ordre ancien et
-    désirent le restaurer : on les dit <strong>bienveillants</strong>. D'autres se
-    sont épris du chaos de la Rupture et refusent de servir à nouveau un ordre
-    qu'ils jugent stérile : on les dit <strong>déchus</strong>. Aucun n'est
-    entièrement bon ni mauvais - seulement fidèle à ce que la Rupture a fait de lui.</p>`;
+    <p class="desc">Les Dieux que tu réveilles se souviennent tous de la Rupture,
+    chacun à sa manière. Les <strong>bienveillants</strong> 🕊️ veulent restaurer
+    l'ordre ancien. Les <strong>déchus</strong> 🔥 ont pris goût au chaos et
+    refusent d'y renoncer. Aucun n'a tort : la Rupture les a faits ainsi.</p>`;
   dom.panelBody.appendChild(card);
 
   if (state.gods.currentGodId) {
@@ -508,6 +505,8 @@ function renderGodsPanel() {
         info.textContent = `⚔️ ${god.unlock.label}` + (god.unlock.challengeId === "erebus" ? ` (${Math.min(progress, god.unlock.target)}/${god.unlock.target})` : "");
       } else if (god.unlock.type === "shop") {
         info.textContent = `🔒 Boutique : ${god.unlock.cost} 💎 ${god.unlock.altLabel ? "(" + god.unlock.altLabel + ")" : ""}`;
+      } else if (god.unlock.type === "box") {
+        info.textContent = "🔒 Uniquement via la Boîte Cosmique (Boutique) - pas d'autre moyen de l'éveiller";
       } else {
         info.textContent = "🔒 Éveille ton premier Dieu via le rituel des lunes.";
       }
@@ -783,6 +782,22 @@ function openBigBangModal() {
   $("bigBangModal").classList.remove("hidden");
 }
 function closeBigBangModal() { $("bigBangModal").classList.add("hidden"); }
+
+// ---------------- Big Bang summary (shown right after confirming) ----------------
+// A toast alone flashed and vanished, with nothing recapping what the run was
+// actually worth or pointing at what's next - this replaces it with a real
+// screen: run recap + the single nearest god milestone as a concrete "why
+// keep playing" hook (see gods.js nextGodMilestoneHint).
+function openBigBangSummaryModal({ stardustEarned, maxTier, gain }) {
+  const state = Game.state;
+  $("bbSummaryStardust").textContent = formatNumber(stardustEarned);
+  $("bbSummaryTier").textContent = `${TIERS[maxTier - 1].name} ${TIERS[maxTier - 1].emoji}`;
+  $("bbSummaryEnergy").textContent = `+${formatNumber(gain)} ⚡`;
+  $("bbSummaryHint").textContent = nextGodMilestoneHint(state)
+    || "Tous les Dieux à objectif direct sont éveillés - tente ta chance à la Boîte Cosmique (Boutique) pour les derniers !";
+  $("bigBangSummaryModal").classList.remove("hidden");
+}
+function closeBigBangSummaryModal() { $("bigBangSummaryModal").classList.add("hidden"); }
 
 function openRestartModal() { $("restartModal").classList.remove("hidden"); }
 function closeRestartModal() { $("restartModal").classList.add("hidden"); }

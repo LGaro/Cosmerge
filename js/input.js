@@ -277,15 +277,16 @@ async function maybeShowInterstitial() {
 
 function onBigBangConfirm() {
   const state = Game.state;
+  const runRecap = { stardustEarned: state.runStardustEarned, maxTier: state.maxTierThisRun };
   const gain = performBigBang(state);
   Game.bigBangPromptShown = false;
   Sfx.bigBang();
   HapticService.impact("success");
   closeBigBangModal();
-  toast(`Big Bang ! +${gain} ⚡ Énergie Cosmique`);
   renderAll();
   saveState(state);
   maybeShowInterstitial();
+  openBigBangSummaryModal({ ...runRecap, gain });
 }
 
 function onRestartConfirm() {
@@ -633,6 +634,8 @@ function wireEvents() {
 
   $("saveCodeCancel").addEventListener("click", closeSaveCodeModal);
   $("saveCodeAction").addEventListener("click", onSaveCodeAction);
+
+  $("bbSummaryClose").addEventListener("click", closeBigBangSummaryModal);
 
   $("removeAdsPromptLater").addEventListener("click", closeRemoveAdsPromptModal);
   $("removeAdsPromptBuy").addEventListener("click", async () => {

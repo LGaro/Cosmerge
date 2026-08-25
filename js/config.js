@@ -157,6 +157,35 @@ const GODS = [
     },
     lore: "Morgorath ne crée rien - il concentre. Chaque étoile qu'il engloutit devient un peu plus dense, un peu plus lourde, jusqu'à ce que la lumière elle-même n'ose plus s'en échapper.",
   },
+
+  // ---- Box-exclusive gods: unlock.type "box" means no story/milestone/shop
+  // path exists at all - rollCosmicBox() (gods.js) is the only way in. Kept
+  // deliberately non-commun, per design intent: the Cosmic Box should feel
+  // worth opening even for a player who's already awakened every story god.
+  {
+    id: "iris", name: "Iris", title: "Messagère des Fragments", emoji: "🌈",
+    rarity: "rare", alignment: "bienveillant",
+    desc: "+18% production des Planètes et Géantes gazeuses",
+    effects: { tierProdBonus: { minTier: 4, maxTier: 5, mult: 1.18 } },
+    unlock: { type: "box" },
+    lore: "Iris ne s'éveille jamais d'elle-même - elle apparaît, ou elle n'apparaît pas, au hasard d'une Boîte Cosmique ouverte. Elle porte les messages qu'aucun autre Dieu endormi ne peut plus entendre.",
+  },
+  {
+    id: "eris", name: "Éris", title: "Semeuse de Discorde", emoji: "🔮",
+    rarity: "epique", alignment: "dechu",
+    desc: "+8% chance de Gem bonus par fusion, mais -7% production globale",
+    effects: { gemChanceBonus: 0.08, prodMult: 0.93 },
+    unlock: { type: "box" },
+    lore: "Éris trouve la Rupture magnifique - un chaos si parfait qu'elle refuse d'y voir un accident. Ceux qui l'invoquent gagnent en fortune ce qu'ils perdent en constance.",
+  },
+  {
+    id: "nemesis", name: "Némésis", title: "la Justicière Cosmique", emoji: "⚖️",
+    rarity: "legendaire", alignment: "dechu",
+    desc: "+12% production globale et +12% Gems gagnées",
+    effects: { prodMult: 1.12, gemsMult: 1.12 },
+    unlock: { type: "box" },
+    lore: "Némésis ne pardonne à aucun Dieu d'avoir laissé le Cosmos se briser - bienveillant ou déchu, tous lui doivent des comptes. Rare est le fusionneur qu'elle juge digne de son alliance.",
+  },
 ];
 
 // ---- Daily login cycle (7 days) ----

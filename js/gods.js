@@ -163,9 +163,31 @@ function buyGodWithGems(state, godId) {
   return { ok: true };
 }
 
-// Cosmic Box: rolls any of the 9 gods weighted by rarity, regardless of that
-// god's normal unlock path. A duplicate roll pays out Gems instead (scaled
-// to the rarity rolled) so the box never feels wasted.
+// Picks the single most relevant "how close are you" hint for the Big Bang
+// summary screen (see ui.js openBigBangSummaryModal): the milestone-type god
+// nearest to unlocking, since that's concrete progress the player can
+// actually see moving between runs, not just an abstract next step.
+function nextGodMilestoneHint(state) {
+  const candidates = GODS.filter(g => g.unlock.type === "milestone" && !isGodUnlocked(state, g.id));
+  if (candidates.length === 0) return null;
+  const progressOf = (g) => {
+    switch (g.id) {
+      case "astreos": return state.lifetime.fusions / 180;
+      case "helios": return state.lifetime.maxTierEver / 7;
+      case "chronos": return state.lifetime.bigBangCount / 3;
+      case "nyx": return unlockedCount(state) / 20;
+      default: return 0;
+    }
+  };
+  const best = candidates.slice().sort((a, b) => progressOf(b) - progressOf(a))[0];
+  const pct = Math.min(99, Math.round(progressOf(best) * 100));
+  return `Prochain Dieu en approche : ${best.emoji} ${best.name} (${pct}% - ${best.unlock.label})`;
+}
+
+// Cosmic Box: rolls any god weighted by rarity, regardless of that god's
+// normal unlock path (including the "box"-only gods, whose only path IS
+// this roll). A duplicate roll pays out Gems instead (scaled to the rarity
+// rolled) so the box never feels wasted.
 function rollCosmicBox(state) {
   const total = Object.values(BOX_RARITY_WEIGHTS).reduce((a, b) => a + b, 0);
   let r = Math.random() * total;
