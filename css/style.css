@@ -255,10 +255,6 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
 .simBar{height:6px;background:#222;border-radius:4px;overflow:hidden;margin-bottom:16px;}
 .simBarFill{height:100%;width:0%;background:linear-gradient(90deg,var(--accent2),var(--accent));}
 
-.fullMsg{position:fixed;top:calc(var(--safe-top) + 54px);left:50%;transform:translateX(-50%);
-  background:#3a1030dd;border:1px solid #f8717188;color:#fecaca;font-size:12px;padding:6px 12px;border-radius:10px;
-  z-index:40;pointer-events:none;}
-
 .iapPrice{font-weight:700;color:var(--stardust);}
 
 .grid.skin-violet .tile{filter:hue-rotate(200deg) saturate(1.4);}

@@ -287,7 +287,7 @@ function renderShopPanel() {
   const boostReady = Date.now() >= state.cooldowns.prodBoostUntil;
   const boostActive = state.cooldowns.prodBoostActiveUntil > Date.now();
   const boostCard = el("div", "card");
-  boostCard.innerHTML = `<div class="rowBetween"><h3>Boost x2 production (30 min)</h3></div>
+  boostCard.innerHTML = `<div class="rowBetween"><h3>Boost x2 production (10 min)</h3></div>
     <p class="desc">${boostActive ? `Actif encore ${formatDuration(state.cooldowns.prodBoostActiveUntil - Date.now())}` :
       (boostReady ? "Disponible maintenant." : `Disponible dans ${formatDuration(state.cooldowns.prodBoostUntil - Date.now())}`)}</p>`;
   const boostBtn = el("button", "btn primary full", "Regarder une pub");

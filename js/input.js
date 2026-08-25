@@ -409,7 +409,7 @@ async function onWatchProdBoostAd() {
   if (!ok) return;
   activateProdBoost(state);
   Sfx.purchase();
-  toast("🚀 Boost x2 production activé pour 30 min !");
+  toast("🚀 Boost x2 production activé pour 10 min !");
   refreshCurrentPanel();
   updateHeader();
   updateFabs();
