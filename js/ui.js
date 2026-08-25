@@ -563,22 +563,23 @@ function renderProgressionPanel() {
 
   dom.panelBody.appendChild(el("h3", null, "Ton parcours"));
 
-  // Ordered by roughly how a real playthrough reaches them, not by data
-  // declaration order - e.g. Séléna and Astréos are typically within reach
-  // in the very first run, well before a first Big Bang.
+  // Ordered by actual prerequisite structure, not by data declaration order.
+  // Astréos (fusion count), Erebus (fusion streak), Hélios (reach tier 7) and
+  // Nyx (20 cells in one run) don't require a Big Bang at all - reaching
+  // tier 7 in particular happens *on the way* to tier 10, so it belongs
+  // before "Atteindre l'Univers", not after "Premier Big Bang".
   const godById = (id) => GODS.find(g => g.id === id);
+  const godStep = (id) => { const g = godById(id); return { emoji: g.emoji, done: isGodUnlocked(state, id), text: g.name, sub: g.unlock.label }; };
   const steps = [];
   steps.push({ emoji: "🔱", done: !!state.gods.currentGodId, text: "Éveiller ton premier Dieu" });
-  ["astreos"].forEach(id => {
-    const g = godById(id);
-    steps.push({ emoji: g.emoji, done: isGodUnlocked(state, id), text: g.name, sub: g.unlock.label });
-  });
+  steps.push(godStep("astreos"));
+  steps.push(godStep("erebus"));
+  steps.push(godStep("helios"));
+  steps.push(godStep("nyx"));
   steps.push({ emoji: TIERS[TIERS.length - 1].emoji, done: state.lifetime.maxTierEver >= TIERS.length, text: "Atteindre l'Univers" });
   steps.push({ emoji: "💥", done: state.lifetime.bigBangCount >= 1, text: "Premier Big Bang" });
-  ["nyx", "helios", "erebus", "thanatos", "chronos"].forEach(id => {
-    const g = godById(id);
-    steps.push({ emoji: g.emoji, done: isGodUnlocked(state, id), text: g.name, sub: g.unlock.label });
-  });
+  steps.push(godStep("thanatos"));
+  steps.push(godStep("chronos"));
   steps.push({ emoji: "🏆", done: state.achievements.unlockedIds.length >= ACHIEVEMENTS.length,
     text: "Tous les succès", sub: `${state.achievements.unlockedIds.length}/${ACHIEVEMENTS.length}` });
 
@@ -587,7 +588,7 @@ function renderProgressionPanel() {
   steps.forEach((s, i) => {
     const state2 = s.done ? "done" : (i === nextIdx ? "next" : "locked");
     const node = el("div", "roadNode " + state2);
-    node.innerHTML = `<div class="roadIcon">${s.done ? "✓" : s.emoji}</div>
+    node.innerHTML = `<div class="roadIcon"><span class="roadIconGlyph">${s.done ? "✓" : s.emoji}</span></div>
       <div class="roadText"><div class="roadLabel">${s.text}</div>${s.sub ? `<div class="roadSub">${s.sub}</div>` : ""}</div>`;
     roadmap.appendChild(node);
   });
@@ -678,6 +679,14 @@ function renderSettingsPanel() {
   backupCard.appendChild(importBtn);
   dom.panelBody.appendChild(backupCard);
 
+  const restartCard = el("div", "card");
+  restartCard.innerHTML = `<h3>Recommencer</h3>
+    <p class="desc">Repars de zéro sur cette partie sans attendre l'Univers. L'Énergie Cosmique, les Gems, l'Ascension, les Dieux et les succès restent acquis.</p>`;
+  const restartBtn = el("button", "btn danger full", "🔄 Recommencer la partie");
+  restartBtn.addEventListener("click", openRestartModal);
+  restartCard.appendChild(restartBtn);
+  dom.panelBody.appendChild(restartCard);
+
   const status = el("p", "desc", state.iap.removeAds || isVipActive(state) ?
     "✅ Publicités désactivées sur cet appareil." : "Les publicités sont actives (retirables dans la Boutique).");
   dom.panelBody.appendChild(status);
@@ -765,6 +774,9 @@ function openBigBangModal() {
   $("bigBangModal").classList.remove("hidden");
 }
 function closeBigBangModal() { $("bigBangModal").classList.add("hidden"); }
+
+function openRestartModal() { $("restartModal").classList.remove("hidden"); }
+function closeRestartModal() { $("restartModal").classList.add("hidden"); }
 
 // ---------------- Manual save backup modal ----------------
 function openSaveCodeModal(mode) {

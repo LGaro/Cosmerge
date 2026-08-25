@@ -29,6 +29,28 @@ function performBigBang(state) {
   return gain;
 }
 
+// Voluntary reset, available anytime (unlike Big Bang, which needs a
+// Universe tile). No Cosmic Energy is granted and lifetime.bigBangCount is
+// NOT incremented - this is giving up on a run, not completing one.
+function restartRun(state) {
+  if (state.gods.nextGodId) {
+    state.gods.currentGodId = state.gods.nextGodId;
+    state.gods.nextGodId = null;
+  }
+  state.moonMergesThisRun = 0;
+  state.gods.erebusStreak = 0;
+  state.gods.usedFusionExpressThisRun = false;
+
+  const seeded = freshGrid(state);
+  state.grid = seeded.grid;
+  state.unlocked = seeded.unlocked;
+  state.stardust = 0;
+  state.runStardustEarned = 0;
+  state.maxTierThisRun = 1;
+  state.manualSpawnCount = 0;
+  state.extraUnlockedCount = 0;
+}
+
 function buySkill(state, key) {
   const branch = SKILL_TREE[key];
   const level = state.skills[key];

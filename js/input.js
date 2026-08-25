@@ -275,6 +275,19 @@ function onBigBangConfirm() {
   maybeShowInterstitial();
 }
 
+function onRestartConfirm() {
+  const state = Game.state;
+  restartRun(state);
+  Game.bigBangPromptShown = false;
+  Sfx.bigBang();
+  HapticService.impact("medium");
+  closeRestartModal();
+  closePanel();
+  toast("Nouvelle partie !");
+  renderAll();
+  saveState(state);
+}
+
 async function onSaveCodeAction() {
   const textarea = $("saveCodeText");
   if (Game.saveCodeMode === "export") {
@@ -601,6 +614,8 @@ function wireEvents() {
 
   $("bigBangConfirm").addEventListener("click", onBigBangConfirm);
   $("bigBangCancel").addEventListener("click", closeBigBangModal);
+  $("restartCancel").addEventListener("click", closeRestartModal);
+  $("restartConfirm").addEventListener("click", onRestartConfirm);
 
   $("saveCodeCancel").addEventListener("click", closeSaveCodeModal);
   $("saveCodeAction").addEventListener("click", onSaveCodeAction);

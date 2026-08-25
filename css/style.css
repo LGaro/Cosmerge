@@ -168,6 +168,11 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
 .panelBody > h3{font-size:14px;font-weight:800;color:var(--text);margin:8px 0 0;padding-left:10px;
   border-left:3px solid var(--accent2);letter-spacing:.01em;text-transform:uppercase;}
 .panelBody{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:10px;padding-bottom:20px;}
+/* The default scrollbar rendered on top of card content looked out of place -
+   card boundaries already make scrollable areas clear without it. */
+.panelBody,.drawer,.modalCard,.tutCard,.godRitualList{scrollbar-width:none;-ms-overflow-style:none;}
+.panelBody::-webkit-scrollbar,.drawer::-webkit-scrollbar,.modalCard::-webkit-scrollbar,
+.tutCard::-webkit-scrollbar,.godRitualList::-webkit-scrollbar{display:none;}
 .panelBody > *{flex-shrink:0;} /* a flex child with overflow:hidden defaults its min-height to 0, letting the flexbox
   algorithm crush it below content size when the list is long - this guards every panel section against that trap */
 
@@ -301,7 +306,9 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
   font-size:17px;background:var(--bg-card);border:2px solid #3a3070;position:relative;z-index:1;}
 .roadNode.done .roadIcon{background:var(--success);border-color:var(--success);color:#04241a;font-weight:800;}
 .roadNode.next .roadIcon{border-color:var(--accent2);box-shadow:0 0 0 4px #22d3ee33;animation:pulseHi 1.6s ease-in-out infinite;}
-.roadNode.locked .roadIcon{opacity:.4;filter:grayscale(1);}
+/* dim only the glyph, not .roadIcon itself - opacity on the icon would also
+   fade its solid background, letting the connecting line bleed through it */
+.roadNode.locked .roadIconGlyph{opacity:.45;filter:grayscale(1);}
 .roadLabel{font-size:13px;font-weight:700;}
 .roadNode.done .roadLabel{color:var(--text-dim);}
 .roadNode.locked .roadLabel{color:var(--text-dim);opacity:.7;}

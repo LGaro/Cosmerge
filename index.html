@@ -16,7 +16,7 @@
 <!-- og:image/twitter:image must be an ABSOLUTE URL (https://votre-domaine/social-share.png)
      once this is deployed to a real host - relative paths don't work for link-preview crawlers
      (WhatsApp, iMessage, etc). The source image is generated in assets/social-share-source.html. -->
-<link rel="stylesheet" href="css/style.css?v=5">
+<link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
 <div id="starsBg"></div>
@@ -161,6 +161,19 @@
   </div>
 </div>
 
+<!-- Voluntary restart (no Universe tile required, unlike Big Bang) -->
+<div class="modalOverlay hidden" id="restartModal">
+  <div class="modalCard">
+    <h3>🔄 Recommencer la partie ?</h3>
+    <p>Tu vas perdre la progression de cette partie : la grille et le Stardust actuels repartiront de zéro.</p>
+    <p class="modalWarn">L'Énergie Cosmique, les Gems, l'Ascension, les Dieux et vos succès sont conservés pour toujours.</p>
+    <div class="modalBtns">
+      <button class="btn" id="restartCancel">Annuler</button>
+      <button class="btn danger" id="restartConfirm">Recommencer</button>
+    </div>
+  </div>
+</div>
+
 <!-- God ritual: first choice is mandatory, later ones are managed from the Gods panel -->
 <div class="modalOverlay hidden" id="godRitualModal">
   <div class="modalCard">
@@ -204,15 +217,15 @@
   </div>
 </div>
 
-<script src="js/config.js?v=5"></script>
-<script src="js/state.js?v=5"></script>
-<script src="js/audio.js?v=5"></script>
-<script src="js/services.js?v=5"></script>
-<script src="js/economy.js?v=5"></script>
-<script src="js/gods.js?v=5"></script>
-<script src="js/retention.js?v=5"></script>
-<script src="js/ui.js?v=5"></script>
-<script src="js/input.js?v=5"></script>
-<script src="js/main.js?v=5"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/state.js?v=6"></script>
+<script src="js/audio.js?v=6"></script>
+<script src="js/services.js?v=6"></script>
+<script src="js/economy.js?v=6"></script>
+<script src="js/gods.js?v=6"></script>
+<script src="js/retention.js?v=6"></script>
+<script src="js/ui.js?v=6"></script>
+<script src="js/input.js?v=6"></script>
+<script src="js/main.js?v=6"></script>
 </body>
 </html>
