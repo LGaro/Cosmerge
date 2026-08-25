@@ -32,15 +32,29 @@ function ensureAudio() {
 // gain to 0 (covers SFX and music together) so nothing is left mid-envelope
 // at a non-zero amplitude for the OS to cut off abruptly when it tears down
 // audio for a backgrounded/closed app - that discontinuity is the click/thud.
+let suspendTimer = null;
 function muteAllAudio() {
   if (!audioCtx || !masterOutGain) return;
   const now = audioCtx.currentTime;
   masterOutGain.gain.cancelScheduledValues(now);
   masterOutGain.gain.setValueAtTime(masterOutGain.gain.value, now);
   masterOutGain.gain.linearRampToValueAtTime(0, now + 0.04);
+  // Beyond muting our own graph: proactively suspending the AudioContext
+  // once silent stops the render thread on our terms, before the OS forces
+  // the issue by tearing down the audio session on its own - which on iOS
+  // can itself produce a route-change pop independent of anything a gain
+  // node controls (the "unplugging a cable" sound). This can't be fully
+  // ruled out from JS since it happens at the OS/WebKit layer, but ending
+  // the session cleanly while already silent is the best mitigation available.
+  if (suspendTimer) clearTimeout(suspendTimer);
+  suspendTimer = setTimeout(() => {
+    if (audioCtx && audioCtx.state === "running") audioCtx.suspend();
+  }, 90);
 }
 function unmuteAllAudio() {
+  if (suspendTimer) { clearTimeout(suspendTimer); suspendTimer = null; }
   if (!audioCtx || !masterOutGain) return;
+  if (audioCtx.state === "suspended") audioCtx.resume();
   const now = audioCtx.currentTime;
   masterOutGain.gain.cancelScheduledValues(now);
   masterOutGain.gain.setValueAtTime(1, now);

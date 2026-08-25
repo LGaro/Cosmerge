@@ -335,7 +335,7 @@ function areAdjacent(a, b) {
 }
 
 // ---- Player profile (drawer header identity) ----
-const PROFILE_EMOJI_CHOICES = ["🧑‍🚀", "👩‍🚀", "👨‍🚀", "👧", "👦", "🧑", "✨", "🪐", "🌙", "⭐", "☄️", "🌌", "🔥", "⚡", "🌍", "💫", "🕳️", "👑", "🦄", "🎯", "💎", "🚀"];
+const PROFILE_EMOJI_CHOICES = ["👨‍🚀", "👩‍🚀", "🧑‍🚀", "👧", "👦", "🧑", "✨", "🪐", "🌙", "⭐", "☄️", "🌌", "🔥", "⚡", "🌍", "💫", "🕳️", "👑", "🦄", "🎯", "💎", "🚀"];
 const PROFILE_COLOR_CHOICES = ["#f7b733", "#8b5cf6", "#22d3ee", "#f472b6", "#34d399", "#f87171", "#60a5fa", "#fbbf24"];
 
 // ---- God power level (per-god upgrade paid in Gems, scales that god's own effect) ----

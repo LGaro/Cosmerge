@@ -93,7 +93,7 @@ function defaultState() {
 
     settings: { sound: true, music: true, notifications: true },
     firstPlayedDay: todayStr(),
-    profile: { name: "Joueur", emoji: "🧑‍🚀", color: "#f7b733" },
+    profile: { name: "Étincelle", emoji: "👨‍🚀", color: "#f7b733" },
   };
   const seeded = freshGrid(state);
   state.grid = seeded.grid;
