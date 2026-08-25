@@ -43,6 +43,29 @@ function computeOfflineGain(state, nowTs) {
   return { elapsedMs, cappedMs, gain, wasCapped: elapsedMs > capMs };
 }
 
+// Auto-spawn (tickAutoSpawn) only runs while the game loop is ticking, i.e.
+// while the app is actually open - so unlike production, it doesn't cover
+// time spent away at all by default. This replays it at the same cadence
+// over the (capped) offline duration, filling empty unlocked cells exactly
+// like it would have if the app had stayed open. Applied immediately
+// (not gated behind the offline-gain modal's "collect" button) because
+// tickAutoSpawn itself is passive/automatic, not something the player claims.
+function applyOfflineAutoSpawns(state, cappedMs) {
+  const interval = autoSpawnIntervalMs(state);
+  let remaining = Math.floor(cappedMs / interval);
+  let spawned = 0;
+  while (remaining > 0) {
+    const empties = emptyUnlockedIndices(state);
+    if (empties.length === 0) break;
+    const idx = empties[Math.floor(Math.random() * empties.length)];
+    state.grid[idx] = { tier: 1 };
+    updateQuestProgress(state, "autoSpawns", 1);
+    spawned++;
+    remaining--;
+  }
+  return spawned;
+}
+
 // ---- Daily login ----
 function isDailyLoginAvailable(state) {
   return state.dailyLogin.lastClaimDay !== todayStr();

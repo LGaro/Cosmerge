@@ -61,6 +61,7 @@ function requestStorageAccessBestEffort() {
   checkGodMilestones(state);
 
   const gainInfo = computeOfflineGain(state, Date.now());
+  applyOfflineAutoSpawns(state, gainInfo.cappedMs);
 
   renderAll();
 
@@ -115,6 +116,8 @@ function requestStorageAccessBestEffort() {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") { saveState(Game.state); return; }
     const info = computeOfflineGain(Game.state, Date.now());
+    const spawned = applyOfflineAutoSpawns(Game.state, info.cappedMs);
+    if (spawned > 0) renderAll();
     if (info.gain >= 1) openOfflineModal(info);
     lastFrame = performance.now();
   });
