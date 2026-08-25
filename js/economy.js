@@ -130,21 +130,34 @@ function performMerge(state, fromIdx, toIdx) {
   return { newTier, gemBonus };
 }
 
-function buySkinWithGems(state, skinId) {
-  const skin = SKINS.find(s => s.id === skinId);
-  if (!skin || skin.cost === 0) return { ok: false, reason: "unknown" };
-  if (isSkinOwned(state, skinId)) return { ok: false, reason: "owned" };
-  if (state.gems < skin.cost) return { ok: false, reason: "funds" };
-  state.gems -= skin.cost;
-  state.ownedSkins.push(skinId);
+// Ambiance and emoji-set are separate equip slots (see state.js) sharing one
+// cosmetic-item lookup/purchase/equip flow, since AMBIANCES and EMOJI_SETS
+// ids never collide across the two lists.
+function findCosmeticItem(id) {
+  const amb = AMBIANCES.find(a => a.id === id);
+  if (amb) return { item: amb, kind: "ambiance" };
+  const es = EMOJI_SETS.find(e => e.id === id);
+  if (es) return { item: es, kind: "emojiSet" };
+  return null;
+}
+function buyCosmeticWithGems(state, id) {
+  const found = findCosmeticItem(id);
+  if (!found || found.item.cost === 0) return { ok: false, reason: "unknown" };
+  if (isSkinOwned(state, id)) return { ok: false, reason: "owned" };
+  if (state.gems < found.item.cost) return { ok: false, reason: "funds" };
+  state.gems -= found.item.cost;
+  state.ownedSkins.push(id);
   return { ok: true };
 }
-function unlockSkinFree(state, skinId) {
-  if (!state.ownedSkins.includes(skinId)) state.ownedSkins.push(skinId);
+function unlockCosmeticFree(state, id) {
+  if (!state.ownedSkins.includes(id)) state.ownedSkins.push(id);
 }
-function equipSkin(state, skinId) {
-  if (isSkinOwned(state, skinId)) { state.equippedSkin = skinId; return true; }
-  return false;
+function equipCosmetic(state, id) {
+  const found = findCosmeticItem(id);
+  if (!found || !isSkinOwned(state, id)) return false;
+  if (found.kind === "ambiance") state.equippedAmbiance = id;
+  else state.equippedEmojiSet = id;
+  return true;
 }
 
 function activateProdBoost(state) {

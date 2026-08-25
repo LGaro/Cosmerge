@@ -11,8 +11,14 @@ function daysBetween(a, b) {
   return Math.round((db - da) / 86400000);
 }
 
-function pickDailyQuests() {
-  const pool = QUEST_POOL.slice();
+// excludeIds keeps yesterday's 3 quests from being reselected today - with
+// no exclusion, a purely random pick from 27 templates has decent odds of
+// resurfacing 1-2 of the same ones, which reads as "the quests didn't
+// actually reset" even though the reset itself ran correctly (verified:
+// ensureDailyQuests fires every frame via updateQuestNotifDot, so the date
+// check is never stale for more than a fraction of a second past midnight).
+function pickDailyQuests(excludeIds) {
+  const pool = QUEST_POOL.filter(q => !excludeIds || !excludeIds.includes(q.id));
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
@@ -67,8 +73,9 @@ function defaultState() {
     dailyStats: { date: null, stardustAtDayStart: 0 }, // see ensureDailyStats() - powers the Stardust info popup's "today" figure
 
     skills: { prod: 0, swarm: 0, gravity: 0, echo: 0, luck: 0 },
-    ownedSkins: ["default"],
-    equippedSkin: "default",
+    ownedSkins: ["default"], // covers both AMBIANCES and EMOJI_SETS ids - safe since each list's ids are unique to it
+    equippedAmbiance: "default",
+    equippedEmojiSet: "default",
 
     dailyLogin: { lastClaimDay: null, streak: 0, cycleDay: 1, streakFreezeCharges: 0 },
     skinFragments: 0,

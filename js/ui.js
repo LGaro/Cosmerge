@@ -42,28 +42,26 @@ function buildGridDom() {
   }
 }
 
-// Ambient/themed skins used to be applied as a CSS hue-rotate() filter on top
-// of each tier's own gradient - which shifts every tile's ALREADY-different
-// base hue (grey, blue, yellow, purple...) by the same amount, landing on a
-// different resulting color per tier instead of the skin's actual color.
-// That's what made some cells "not in the color at all". Skins other than
-// default now just paint their own fixed gradient directly, uniformly.
+// Ambiance (background) and emoji set (icon/name) are independent equip
+// slots - see state.equippedAmbiance/equippedEmojiSet and config.js's
+// AMBIANCES/EMOJI_SETS. Ambient skins used to be applied as a CSS
+// hue-rotate() filter on top of each tier's own gradient, which shifted
+// every tile's ALREADY-different base hue by the same amount, landing on
+// a different resulting color per tier instead of the skin's actual color
+// ("some cells not in the color at all"). Non-default ambiances now just
+// paint their own fixed gradient directly, uniformly.
+function equippedAmbianceDef() { return AMBIANCES.find(a => a.id === Game.state.equippedAmbiance) || AMBIANCES[0]; }
+function equippedEmojiSetDef() { return EMOJI_SETS.find(e => e.id === Game.state.equippedEmojiSet) || EMOJI_SETS[0]; }
 function tierStyle(tier) {
-  const skin = equippedSkinDef();
-  if (skin.id !== "default" && skin.colors) {
-    return `background:radial-gradient(circle at 35% 30%, ${skin.colors[0]}, ${skin.colors[1]});`;
+  const amb = equippedAmbianceDef();
+  if (amb.id !== "default" && amb.colors) {
+    return `background:radial-gradient(circle at 35% 30%, ${amb.colors[0]}, ${amb.colors[1]});`;
   }
   const t = TIERS[tier - 1];
   return `background:radial-gradient(circle at 35% 30%, ${t.from}, ${t.to});`;
 }
-
-// Themed skins (Fruits du Cosmos, Légumes de l'Espace...) replace each
-// tier's emoji/name via SKINS[x].tierSkin - every place that shows a tier's
-// identity to the player (grid tiles, the merge toast) reads through these
-// instead of TIERS directly, so equipping one actually changes what you see.
-function equippedSkinDef() { return SKINS.find(s => s.id === Game.state.equippedSkin) || SKINS[0]; }
-function tierEmoji(tier) { const s = equippedSkinDef(); return (s.tierSkin && s.tierSkin[tier - 1]) ? s.tierSkin[tier - 1].emoji : TIERS[tier - 1].emoji; }
-function tierName(tier) { const s = equippedSkinDef(); return (s.tierSkin && s.tierSkin[tier - 1]) ? s.tierSkin[tier - 1].name : TIERS[tier - 1].name; }
+function tierEmoji(tier) { const s = equippedEmojiSetDef(); return (s.tierSkin && s.tierSkin[tier - 1]) ? s.tierSkin[tier - 1].emoji : TIERS[tier - 1].emoji; }
+function tierName(tier) { const s = equippedEmojiSetDef(); return (s.tierSkin && s.tierSkin[tier - 1]) ? s.tierSkin[tier - 1].name : TIERS[tier - 1].name; }
 
 function renderCell(i, opts) {
   opts = opts || {};
@@ -120,7 +118,6 @@ function refreshLockedCellPrices() {
 }
 
 function renderAll() {
-  dom.grid.className = "grid skin-" + (Game.state.equippedSkin === "default" ? "none" : Game.state.equippedSkin);
   for (let i = 0; i < TOTAL; i++) renderCell(i);
   updateHeader();
   updateFabs();
@@ -318,6 +315,35 @@ function closePanel() { dom.panelOverlay.classList.add("hidden"); currentPanel =
 
 function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; }
 
+// Shared by the shop's Ambiances/Sets d'icônes sections and the skin
+// manager popup - a compact 2-per-row grid where the swatch carries the
+// visual weight and the button stays a small pill instead of a full-width
+// bar dwarfing a tiny preview.
+function renderCosmeticGrid(list, equippedId, onAfterAction) {
+  const state = Game.state;
+  const grid = el("div", "cosmeticGrid");
+  list.filter(item => item.cost > 0 || item.id === "default").forEach(item => {
+    const owned = isSkinOwned(state, item.id);
+    const equipped = equippedId === item.id;
+    const tile = el("div", "cosmeticTile" + (equipped ? " equipped" : ""));
+    const swatch = el("div", "skinSwatch big");
+    if (item.colors) swatch.style.background = `radial-gradient(circle at 35% 30%, ${item.colors[0]}, ${item.colors[1]})`;
+    if (item.tierSkin) swatch.textContent = item.tierSkin[5].emoji; // representative mid-tier icon as a quick preview
+    if (!item.colors && !item.tierSkin) swatch.textContent = "🚫"; // "Cases classiques" - no override, nothing to preview
+    const name = el("div", "cosmeticName", item.name);
+    const status = equipped ? el("span", "tag equipped", "Équipé") : (owned ? el("span", "tag owned", "Possédé") : null);
+    const btn = el("button", "btn" + (equipped ? "" : " primary"), equipped ? "Équipé" : (owned ? "Équiper" : `${item.cost} 💎`));
+    btn.disabled = equipped || (!owned && state.gems < item.cost);
+    btn.addEventListener("click", () => { onCosmeticAction(item.id, owned); if (onAfterAction) onAfterAction(); });
+    tile.appendChild(swatch);
+    tile.appendChild(name);
+    if (status) tile.appendChild(status);
+    tile.appendChild(btn);
+    grid.appendChild(tile);
+  });
+  return grid;
+}
+
 // ---------------- Shop panel ----------------
 function renderShopPanel() {
   const state = Game.state;
@@ -347,6 +373,7 @@ function renderShopPanel() {
   dom.panelBody.appendChild(gemsAdCard);
 
   dom.panelBody.appendChild(el("h3", null, "Cases & boosts (Gems)"));
+  const gemGrid = el("div", "shopGrid2");
   SHOP_GEM_ITEMS.forEach(item => {
     const card = el("div", "card compact");
     card.innerHTML = `<div class="rowBetween"><h3>${item.name}</h3><span class="tag">${item.cost} 💎</span></div>
@@ -355,30 +382,15 @@ function renderShopPanel() {
     btn.disabled = state.gems < item.cost;
     btn.addEventListener("click", () => onBuyGemItem(item.id));
     card.appendChild(btn);
-    dom.panelBody.appendChild(card);
+    gemGrid.appendChild(card);
   });
+  dom.panelBody.appendChild(gemGrid);
 
-  dom.panelBody.appendChild(el("h3", null, "Skins cosmétiques"));
-  SKINS.filter(s => s.cost > 0).forEach(skin => {
-    const owned = isSkinOwned(state, skin.id);
-    const equipped = state.equippedSkin === skin.id;
-    const card = el("div", "card compact skinCard");
-    const swatch = el("div", "skinSwatch");
-    if (skin.colors) swatch.style.background = `radial-gradient(circle at 35% 30%, ${skin.colors[0]}, ${skin.colors[1]})`;
-    if (skin.tierSkin) swatch.textContent = skin.tierSkin[5].emoji; // a representative mid-tier icon as a quick preview
-    const info = el("div", "skinCardInfo");
-    info.innerHTML = `<div class="rowBetween"><h3>${skin.name}</h3>
-      ${equipped ? '<span class="tag equipped">Équipé</span>' : (owned ? '<span class="tag owned">Possédé</span>' : `<span class="tag">${skin.cost} 💎</span>`)}
-      </div>
-      ${skin.tierSkin ? `<p class="desc">Change aussi les icônes et les noms des cases (ex. ${skin.tierSkin[0].name} ${skin.tierSkin[0].emoji}, ${skin.tierSkin[3].name} ${skin.tierSkin[3].emoji}...)</p>` : ""}`;
-    const btn = el("button", "btn full", equipped ? "Équipé" : (owned ? "Équiper" : "Acheter"));
-    btn.disabled = equipped || (!owned && state.gems < skin.cost);
-    btn.addEventListener("click", () => onSkinAction(skin.id, owned));
-    info.appendChild(btn);
-    card.appendChild(swatch);
-    card.appendChild(info);
-    dom.panelBody.appendChild(card);
-  });
+  dom.panelBody.appendChild(el("h3", null, "🎨 Ambiances"));
+  dom.panelBody.appendChild(renderCosmeticGrid(AMBIANCES, state.equippedAmbiance));
+
+  dom.panelBody.appendChild(el("h3", null, "🖼️ Sets d'icônes"));
+  dom.panelBody.appendChild(renderCosmeticGrid(EMOJI_SETS, state.equippedEmojiSet));
 
   dom.panelBody.appendChild(el("h3", null, "Boutique premium (achats intégrés)"));
   const daysSinceFirst = daysBetween(state.firstPlayedDay, todayStr());
@@ -946,20 +958,10 @@ function openSkinManagerModal() {
   const state = Game.state;
   const list = $("skinManagerList");
   list.innerHTML = "";
-  SKINS.forEach(skin => {
-    const owned = isSkinOwned(state, skin.id);
-    const equipped = state.equippedSkin === skin.id;
-    const row = el("div", "skinManagerRow");
-    const swatch = el("div", "skinSwatch small");
-    if (skin.colors) swatch.style.background = `radial-gradient(circle at 35% 30%, ${skin.colors[0]}, ${skin.colors[1]})`;
-    if (skin.tierSkin) swatch.textContent = skin.tierSkin[5].emoji;
-    const info = el("div", "skinManagerInfo", `<div class="skinManagerName">${skin.name}</div>`);
-    const btn = el("button", "btn" + (equipped ? "" : " primary"), equipped ? "Équipé" : (owned ? "Équiper" : `${skin.cost} 💎`));
-    btn.disabled = equipped || (!owned && state.gems < skin.cost);
-    btn.addEventListener("click", () => { onSkinAction(skin.id, owned); openSkinManagerModal(); });
-    row.appendChild(swatch); row.appendChild(info); row.appendChild(btn);
-    list.appendChild(row);
-  });
+  list.appendChild(el("h3", null, "🎨 Ambiance"));
+  list.appendChild(renderCosmeticGrid(AMBIANCES, state.equippedAmbiance, openSkinManagerModal));
+  list.appendChild(el("h3", null, "🖼️ Set d'icônes"));
+  list.appendChild(renderCosmeticGrid(EMOJI_SETS, state.equippedEmojiSet, openSkinManagerModal));
   $("skinManagerModal").classList.remove("hidden");
 }
 function closeSkinManagerModal() { $("skinManagerModal").classList.add("hidden"); }

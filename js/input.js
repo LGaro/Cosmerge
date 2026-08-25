@@ -556,14 +556,14 @@ function onBuyGemItem(itemId) {
   maybeOpenGodRitual();
   maybeOpenBigBangPrompt();
 }
-function onSkinAction(skinId, owned) {
+function onCosmeticAction(id, owned) {
   const state = Game.state;
   if (owned) {
-    equipSkin(state, skinId);
+    equipCosmetic(state, id);
   } else {
-    const result = buySkinWithGems(state, skinId);
+    const result = buyCosmeticWithGems(state, id);
     if (!result.ok) { Sfx.error(); toast("Pas assez de Gems."); return; }
-    equipSkin(state, skinId);
+    equipCosmetic(state, id);
     Sfx.purchase();
   }
   renderAll();
@@ -587,8 +587,6 @@ async function onBuyIAP(productId) {
       state.gems += product.amount; state.lifetime.gemsEarned += product.amount; break;
     case "vip_monthly": state.iap.vipUntil = Date.now() + 30 * 24 * 3600 * 1000; break;
     case "stardust_boost": state.iap.stardustBoost = true; break;
-    case "skin_pack_violet": case "skin_pack_green": case "skin_pack_red":
-      unlockSkinFree(state, product.skinId); state.iap.ownedSkinPacks.push(product.skinId); break;
   }
   Sfx.purchase();
   toast("Achat confirmé (simulation) : " + product.name);

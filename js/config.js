@@ -20,7 +20,7 @@ const UNLOCK_CELL_AD_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 // Deliberately short and repeatable - this is the "grind toward a specific
 // purchase" ad, not a big one-off bonus like the others above.
 const GEMS_AD_COOLDOWN_MS = 3 * 60 * 1000;
-const GEMS_AD_REWARD = 8; // 5 watches = 40 Gems = exactly the swapCells shop cost, see SHOP_GEM_ITEMS
+const GEMS_AD_REWARD = 10; // 5 watches = 50 Gems = exactly the swapCells shop cost, see SHOP_GEM_ITEMS
 const VIP_DAILY_GEMS = 50;
 // Short + frequent beats long + forgettable for rewarded-ad engagement: a
 // 30 min boost gets watched once and ignored, a 10 min one stays felt and
@@ -50,7 +50,12 @@ const TIERS = [
 
 const INITIAL_UNLOCKED = [7, 8, 9, 10, 11, 13, 14, 15, 16, 17];
 
-const SKINS = [
+// Ambiance (background gradient) and emoji set (tier icons/names) are two
+// independent equip slots - a player can mix e.g. "Nébuleuse rose" with
+// "Fruits du Cosmos", not a bundled all-or-nothing skin. See
+// state.equippedAmbiance/equippedEmojiSet and ui.js's tierStyle()/
+// tierEmoji()/tierName(), which each only look at their own slot.
+const AMBIANCES = [
   { id: "default", name: "Nébuleuse par défaut", cost: 0, currency: "gems",
     colors: ["#8a8a8a", "#2b2b2b"] },
   { id: "violet", name: "Nébuleuse violette", cost: 150, currency: "gems",
@@ -59,28 +64,30 @@ const SKINS = [
     colors: ["#a7f3c8", "#059669"] },
   { id: "red", name: "Supernova rouge", cost: 150, currency: "gems",
     colors: ["#ffb3a6", "#dc2626"] },
+  { id: "pink", name: "Nébuleuse rose", cost: 150, currency: "gems",
+    colors: ["#ffb3c6", "#c2185b"] },
+  { id: "emerald", name: "Nébuleuse émeraude", cost: 150, currency: "gems",
+    colors: ["#a7e8a0", "#2e7d32"] },
+];
 
-  // ---- Themed skins: unlike the ambient ones above (which only recolor the
-  // tile background), these replace each tier's emoji AND name entirely via
-  // tierSkin - see renderCell()/tierStyle() in ui.js and the merge toast in
-  // input.js, which check the equipped skin's tierSkin before falling back
-  // to TIERS. Priced above the ambient skins since they change more.
+const EMOJI_SETS = [
+  { id: "default", name: "Cases classiques", cost: 0, currency: "gems" },
+  // Tier 1 used to be Cerise/Petit Pois - both unrecognizable at tile size
+  // (tiny red blob / tiny green blob), swapped for something unmistakable.
   { id: "fruits", name: "Fruits du Cosmos", cost: 300, currency: "gems",
-    colors: ["#ffb3c6", "#c2185b"],
     tierSkin: [
-      { emoji: "🍒", name: "Cerise" }, { emoji: "🍓", name: "Fraise" },
+      { emoji: "🍓", name: "Fraise" }, { emoji: "🍒", name: "Cerise" },
       { emoji: "🍇", name: "Raisin" }, { emoji: "🍊", name: "Orange" },
       { emoji: "🍎", name: "Pomme" }, { emoji: "🍍", name: "Ananas" },
       { emoji: "🍉", name: "Pastèque" }, { emoji: "🥥", name: "Noix de Coco" },
       { emoji: "🍈", name: "Melon Géant" }, { emoji: "🍯", name: "Nectar Cosmique" },
     ] },
   { id: "legumes", name: "Légumes de l'Espace", cost: 300, currency: "gems",
-    colors: ["#a7e8a0", "#2e7d32"],
     tierSkin: [
-      { emoji: "🫛", name: "Petit Pois" }, { emoji: "🥕", name: "Carotte" },
-      { emoji: "🍅", name: "Tomate" }, { emoji: "🌽", name: "Maïs" },
-      { emoji: "🫑", name: "Poivron" }, { emoji: "🍆", name: "Aubergine" },
-      { emoji: "🥦", name: "Brocoli" }, { emoji: "🧅", name: "Oignon" },
+      { emoji: "🥕", name: "Carotte" }, { emoji: "🍅", name: "Tomate" },
+      { emoji: "🌽", name: "Maïs" }, { emoji: "🫑", name: "Poivron" },
+      { emoji: "🍆", name: "Aubergine" }, { emoji: "🥦", name: "Brocoli" },
+      { emoji: "🧅", name: "Oignon" }, { emoji: "🫛", name: "Petit Pois" },
       { emoji: "🎃", name: "Citrouille Géante" }, { emoji: "🌻", name: "Fleur Cosmique" },
     ] },
 ];
@@ -334,7 +341,7 @@ const ACHIEVEMENTS = [
 // ---- Shop catalog (soft currency: stardust / gems) ----
 const SHOP_GEM_ITEMS = [
   { id: "skipCell", name: "Sauter une case", desc: "Débloque instantanément n'importe quelle case verrouillée", cost: 25 },
-  { id: "swapCells", name: "Échanger deux cases", desc: "Permute le contenu de deux cases au choix - le moyen de créer une fusion quand aucune paire adjacente n'existe", cost: 40 },
+  { id: "swapCells", name: "Échanger deux cases", desc: "Permute le contenu de deux cases au choix - le moyen de créer une fusion quand aucune paire adjacente n'existe", cost: 50 },
   { id: "streakFreeze", name: "Gel de série", desc: "Protège ta série de connexion pendant 1 jour manqué", cost: 20 },
   { id: "cosmicBox", name: "Boîte Cosmique", desc: "Un Dieu au hasard (les Dieux rares sont plus rares) - un doublon se change en Gems", cost: 120 },
 ];
@@ -348,17 +355,14 @@ const BOX_DUPLICATE_GEMS = { commun: 10, rare: 20, epique: 40, legendaire: 80 };
 // ---- IAP catalog (simulated at this stage) ----
 const IAP_CATALOG = [
   { id: "remove_ads", type: "nonconsumable", name: "Suppression des pubs", price: "3,99 $", desc: "Retire toutes les publicités définitivement, et débloque instantanément tous les bonus normalement obtenus en pub (boost, planète gratuite, quête bonus)." },
+  { id: "vip_monthly", type: "subscription", name: "Pass Supernova", price: "6,99 $/mois",
+    desc: "✅ Aucune publicité, jamais\n✅ +100% de production de Stardust\n✅ Débloque tous les skins (ambiances et sets d'icônes)\n✅ Double la durée maximale de gains hors-ligne (jusqu'à 48h d'absence couverte au lieu de 24h)\n✅ 50 Gems offertes chaque jour" },
   { id: "stardust_boost", type: "nonconsumable", name: "Multiplicateur Stardust", price: "4,99 $", desc: "+50% de production de Stardust, en permanence, cumulable avec tous les autres bonus." },
   { id: "starter_pack", type: "nonconsumable", name: "Pack de démarrage", price: "1,99 $", desc: "500 Gems + 3 cases + boost 1h.", startersOnly: true },
   { id: "gems_small", type: "consumable", name: "100 Gems", price: "0,99 $", amount: 100 },
   { id: "gems_medium", type: "consumable", name: "550 Gems (+10%)", price: "4,99 $", amount: 550 },
   { id: "gems_large", type: "consumable", name: "1200 Gems (+20%)", price: "9,99 $", amount: 1200 },
   { id: "gems_mega", type: "consumable", name: "3000 Gems (+35%)", price: "19,99 $", amount: 3000 },
-  { id: "vip_monthly", type: "subscription", name: "Pass Supernova", price: "6,99 $/mois",
-    desc: "✅ Aucune publicité, jamais\n✅ +100% de production de Stardust\n✅ Débloque tous les skins (y compris les thématiques)\n✅ Double la durée maximale de gains hors-ligne (jusqu'à 48h d'absence couverte au lieu de 24h)\n✅ 50 Gems offertes chaque jour" },
-  { id: "skin_pack_violet", type: "nonconsumable", name: "Pack skin Nébuleuse violette", price: "1,99 $", skinId: "violet" },
-  { id: "skin_pack_green", type: "nonconsumable", name: "Pack skin Aurore verte", price: "1,99 $", skinId: "green" },
-  { id: "skin_pack_red", type: "nonconsumable", name: "Pack skin Supernova rouge", price: "1,99 $", skinId: "red" },
 ];
 
 // ---- Formulas ----

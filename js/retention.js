@@ -127,8 +127,8 @@ function applyDailyReward(state, reward) {
     case "skinFragment": {
       state.skinFragments += 1;
       if (state.skinFragments >= SKIN_FRAGMENTS_REQUIRED) {
-        const next = SKINS.find(s => s.cost > 0 && !state.ownedSkins.includes(s.id));
-        if (next) { unlockSkinFree(state, next.id); state.skinFragments = 0; }
+        const next = [...AMBIANCES, ...EMOJI_SETS].find(s => s.cost > 0 && !state.ownedSkins.includes(s.id));
+        if (next) { unlockCosmeticFree(state, next.id); state.skinFragments = 0; }
       }
       break;
     }
@@ -142,7 +142,8 @@ function applyDailyReward(state, reward) {
 // ---- Daily quests ----
 function ensureDailyQuests(state) {
   if (state.quests.date !== todayStr()) {
-    state.quests = { date: todayStr(), active: pickDailyQuests(), bonusAd: { done: false, claimed: false } };
+    const previousIds = (state.quests.active || []).map(q => q.id);
+    state.quests = { date: todayStr(), active: pickDailyQuests(previousIds), bonusAd: { done: false, claimed: false } };
   }
 }
 function updateQuestProgress(state, type, value, isMax) {
