@@ -600,7 +600,6 @@ function wireEvents() {
   dom.invokeBtn.addEventListener("click", () => { ensureAudio(); doInvoke(); });
   dom.bigBangBtn.addEventListener("click", () => openBigBangModal());
   dom.menuBtn.addEventListener("click", () => openDrawer());
-  $("restartBtnHome").addEventListener("click", openRestartModal);
   dom.drawerClose.addEventListener("click", closeDrawer);
   $("drawerHeadEdit").addEventListener("click", (e) => { e.stopPropagation(); closeDrawer(); openProfileModal(); });
   $("profileCancel").addEventListener("click", closeProfileModal);
@@ -614,6 +613,14 @@ function wireEvents() {
   dom.fabWheel.addEventListener("click", openWheelModal);
   dom.fabFreePlanet.addEventListener("click", onFreePlanet);
   $("fabBoost").addEventListener("click", onWatchProdBoostAd);
+  $("fabCurrentGod").addEventListener("click", () => openPanel("gods"));
+  $("fabRestart").addEventListener("click", openRestartModal);
+
+  dom.energyPill.addEventListener("click", () => openPanel("skills"));
+  $("gemsPill").addEventListener("click", openGemsMenuModal);
+  $("gemsMenuShop").addEventListener("click", () => { closeGemsMenuModal(); openPanel("shop"); });
+  $("gemsMenuGods").addEventListener("click", () => { closeGemsMenuModal(); openPanel("gods"); });
+  $("gemsMenuClose").addEventListener("click", closeGemsMenuModal);
 
   $("tutNext").addEventListener("click", () => { tutIndex++; if (tutIndex >= TUT_STEPS.length) endTutorial(); else showTutStep(tutIndex); });
   $("tutSkip").addEventListener("click", () => endTutorial());

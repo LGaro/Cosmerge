@@ -37,12 +37,18 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
 .currency{flex:1;display:flex;align-items:center;gap:5px;background:var(--bg-panel);
   border:1px solid #2a2450;border-radius:12px;padding:7px 8px;min-width:0;}
 .currency .icon{font-size:16px;flex-shrink:0;}
-.currency .value{font-weight:700;font-size:14px;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.currency .value{font-weight:700;font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap;flex-shrink:0;}
 .currency.stardust .value{color:var(--stardust);}
 .currency.gems .value{color:var(--gems);}
 .currency.energy .value{color:var(--energy);}
 .currency.energy{flex:0 0 auto;}
-.currency .rate{font-size:10px;color:var(--text-dim);margin-left:auto;flex-shrink:0;}
+.currency.gems,.currency.energy{cursor:pointer;}
+/* The owned amount (.value) must never truncate - it's the number that
+   actually matters. If the pill runs out of room, the secondary "+X/s"
+   rate text is what shrinks/ellipsizes instead (previously the reverse:
+   .rate had flex-shrink:0 and .value didn't, so the owned amount itself
+   was the one getting cut off to "1.7…" under real device width. */
+.currency .rate{font-size:10px;color:var(--text-dim);margin-left:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .iconBtn{appearance:none;border:1px solid #2a2450;background:var(--bg-panel);color:var(--text);
   border-radius:10px;width:38px;height:38px;font-size:16px;flex-shrink:0;}
 .iconBtn:active{transform:scale(.92);}
@@ -112,6 +118,8 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg-deep);color:var(--t
 .fab.active{border-color:var(--stardust);background:linear-gradient(180deg,#3a2a0d,#241f52);}
 .fab.active .fabLabel{color:var(--stardust);font-variant-numeric:tabular-nums;}
 .fab:disabled{opacity:.4;}
+.fab.muted{opacity:.5;padding:8px 11px;background:linear-gradient(180deg,#1c1838,#151230);}
+.fab.muted:active{opacity:.85;}
 
 /* 50px matches the standard AdMob/IAB mobile banner (320x50 pt) this placeholder stands in for. */
 .bannerAd{height:50px;background:#1a1533;border:1px dashed #3a3070;border-radius:8px;display:flex;

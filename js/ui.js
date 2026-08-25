@@ -158,6 +158,13 @@ function updateFabs() {
   if ($("fabBoostLabel").textContent !== boostLabel) $("fabBoostLabel").textContent = boostLabel;
   dom.bannerAd.classList.toggle("hidden", adsRemoved(state));
   updateQuestNotifDot();
+
+  const god = state.gods.currentGodId ? getGod(state.gods.currentGodId) : null;
+  $("fabCurrentGod").classList.toggle("hidden", !god);
+  if (god) {
+    $("fabGodEmoji").textContent = god.emoji;
+    $("fabGodName").textContent = god.name;
+  }
 }
 
 function hasClaimableQuest(state) {
@@ -801,6 +808,10 @@ function closeBigBangSummaryModal() { $("bigBangSummaryModal").classList.add("hi
 
 function openRestartModal() { $("restartModal").classList.remove("hidden"); }
 function closeRestartModal() { $("restartModal").classList.add("hidden"); }
+
+// ---------------- Gems quick menu (tapping the Gems pill) ----------------
+function openGemsMenuModal() { $("gemsMenuModal").classList.remove("hidden"); }
+function closeGemsMenuModal() { $("gemsMenuModal").classList.add("hidden"); }
 
 // ---------------- Remove-ads soft prompt (shown once, after the 5th rewarded ad) ----------------
 function openRemoveAdsPromptModal() {

@@ -16,7 +16,7 @@
 <!-- og:image/twitter:image must be an ABSOLUTE URL (https://votre-domaine/social-share.png)
      once this is deployed to a real host - relative paths don't work for link-preview crawlers
      (WhatsApp, iMessage, etc). The source image is generated in assets/social-share-source.html. -->
-<link rel="stylesheet" href="css/style.css?v=12">
+<link rel="stylesheet" href="css/style.css?v=13">
 </head>
 <body>
 <div id="starsBg"></div>
@@ -28,7 +28,7 @@
       <span class="value" id="stardustValue">0</span>
       <span class="rate" id="stardustRate">+0/s</span>
     </div>
-    <div class="currency gems">
+    <div class="currency gems" id="gemsPill">
       <span class="icon">💎</span>
       <span class="value" id="gemsValue">0</span>
     </div>
@@ -36,16 +36,17 @@
       <span class="icon">⚡</span>
       <span class="value" id="energyValue">0</span>
     </div>
-    <button class="iconBtn" id="restartBtnHome" aria-label="Recommencer la partie">🔄</button>
     <button class="iconBtn" id="menuBtn" aria-label="Menu">☰</button>
   </header>
 
   <div class="quickActions" id="fabStack">
+    <button class="fab hidden" id="fabCurrentGod"><span class="fabIcon" id="fabGodEmoji">🔱</span><span class="fabLabel" id="fabGodName">-</span></button>
     <button class="fab" id="fabShop"><span class="fabIcon">🛒</span><span class="fabLabel">Boutique</span></button>
     <button class="fab hidden" id="fabDailyLogin"><span class="fabIcon">🎁</span><span class="fabLabel">Cadeau</span></button>
     <button class="fab hidden" id="fabWheel"><span class="fabIcon">🎡</span><span class="fabLabel">Roue</span></button>
     <button class="fab" id="fabFreePlanet"><span class="fabIcon">🌍</span><span class="fabLabel">Planète gratuite</span></button>
     <button class="fab" id="fabBoost"><span class="fabIcon">🚀</span><span class="fabLabel" id="fabBoostLabel">Boost x2</span></button>
+    <button class="fab muted" id="fabRestart" aria-label="Recommencer la partie"><span class="fabIcon">🔄</span></button>
   </div>
 
   <div class="toolbar">
@@ -187,6 +188,19 @@
   </div>
 </div>
 
+<!-- Gems quick menu: tapping the Gems pill offers the two things Gems are for -->
+<div class="modalOverlay hidden" id="gemsMenuModal">
+  <div class="modalCard">
+    <h3>💎 Gems</h3>
+    <p class="desc">Que veux-tu faire avec tes Gems ?</p>
+    <div class="modalBtns" style="flex-direction:column;">
+      <button class="btn primary full" id="gemsMenuShop">🛒 Dépenser en boutique</button>
+      <button class="btn full" id="gemsMenuGods" style="margin-top:8px;">🔱 Améliorer un Dieu</button>
+    </div>
+    <button class="btn ghost full" id="gemsMenuClose" style="margin-top:8px;">Fermer</button>
+  </div>
+</div>
+
 <!-- Remove-ads soft prompt: shown once, the first time the player watches a 5th rewarded ad -->
 <div class="modalOverlay hidden" id="removeAdsPromptModal">
   <div class="modalCard">
@@ -242,15 +256,15 @@
   </div>
 </div>
 
-<script src="js/config.js?v=12"></script>
-<script src="js/state.js?v=12"></script>
-<script src="js/audio.js?v=12"></script>
-<script src="js/services.js?v=12"></script>
-<script src="js/economy.js?v=12"></script>
-<script src="js/gods.js?v=12"></script>
-<script src="js/retention.js?v=12"></script>
-<script src="js/ui.js?v=12"></script>
-<script src="js/input.js?v=12"></script>
-<script src="js/main.js?v=12"></script>
+<script src="js/config.js?v=13"></script>
+<script src="js/state.js?v=13"></script>
+<script src="js/audio.js?v=13"></script>
+<script src="js/services.js?v=13"></script>
+<script src="js/economy.js?v=13"></script>
+<script src="js/gods.js?v=13"></script>
+<script src="js/retention.js?v=13"></script>
+<script src="js/ui.js?v=13"></script>
+<script src="js/input.js?v=13"></script>
+<script src="js/main.js?v=13"></script>
 </body>
 </html>
