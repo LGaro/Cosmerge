@@ -141,6 +141,7 @@ function updateHeader() {
   const cost = invokeCost(state.manualSpawnCount);
   const costStr = formatNumber(cost);
   if (costStr !== lastHeaderRender.cost) { dom.invokeCost.textContent = costStr; lastHeaderRender.cost = costStr; }
+  if (!lastHeaderRender.gemsCostSet) { $("invokeCostGems").textContent = GEMS_INVOKE_COST; lastHeaderRender.gemsCostSet = true; }
   const disabled = state.stardust < cost;
   if (disabled !== lastHeaderRender.disabled) { dom.invokeBtn.classList.toggle("disabled", disabled); lastHeaderRender.disabled = disabled; }
 
@@ -322,7 +323,7 @@ function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.
 function renderCosmeticGrid(list, equippedId, onAfterAction) {
   const state = Game.state;
   const grid = el("div", "cosmeticGrid");
-  list.filter(item => item.cost > 0 || item.id === "default").forEach(item => {
+  list.forEach(item => {
     const owned = isSkinOwned(state, item.id);
     const equipped = equippedId === item.id;
     const tile = el("div", "cosmeticTile" + (equipped ? " equipped" : ""));
@@ -921,6 +922,21 @@ function openInvokeChoiceModal() {
   $("invokeChoiceModal").classList.remove("hidden");
 }
 function closeInvokeChoiceModal() { $("invokeChoiceModal").classList.add("hidden"); }
+
+// ---------------- Purchase confirmation (every IAP) ----------------
+// A toast alone was easy to miss, especially for VIP where the actual
+// effect (double production, no ads, all skins) isn't dramatic-looking on
+// its own - state.js's isVipActive()/productionMultiplier()/isSkinOwned()
+// already read state.iap.vipUntil live the instant it's set in onBuyIAP,
+// this modal just makes that unmistakable instead of easy to doubt.
+function openPurchaseConfirmModal(product) {
+  $("purchaseConfirmTitle").textContent = `✅ ${product.name}`;
+  $("purchaseConfirmText").textContent = product.id === "vip_monthly"
+    ? "Le Pass Supernova est actif dès maintenant : +100% de production, plus aucune pub, tous les skins débloqués, et tes 50 Gems quotidiennes dès demain."
+    : `Achat confirmé (simulation) - ${product.desc || "profite-en !"}`;
+  $("purchaseConfirmModal").classList.remove("hidden");
+}
+function closePurchaseConfirmModal() { $("purchaseConfirmModal").classList.add("hidden"); }
 
 // ---------------- Cosmic Box reveal ----------------
 // Buying a Cosmic Box used to just show a toast - easy to miss, and gave the

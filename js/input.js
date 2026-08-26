@@ -589,10 +589,10 @@ async function onBuyIAP(productId) {
     case "stardust_boost": state.iap.stardustBoost = true; break;
   }
   Sfx.purchase();
-  toast("Achat confirmé (simulation) : " + product.name);
   refreshCurrentPanel();
   renderAll();
   saveState(state);
+  openPurchaseConfirmModal(product);
 }
 async function onRestorePurchases() {
   await IAPService.restorePurchases();
@@ -731,6 +731,7 @@ function wireEvents() {
   $("fabSkins").addEventListener("click", openSkinManagerModal);
   $("skinManagerClose").addEventListener("click", closeSkinManagerModal);
   $("cosmicBoxClose").addEventListener("click", closeCosmicBoxModal);
+  $("purchaseConfirmClose").addEventListener("click", closePurchaseConfirmModal);
 
   dom.energyPill.addEventListener("click", () => openPanel("skills"));
   $("gemsPill").addEventListener("click", openGemsMenuModal);

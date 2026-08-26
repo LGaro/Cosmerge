@@ -33,7 +33,7 @@ const MOON_MERGES_TO_CHOOSE_GOD = 4;
 // Flat (not scaled like invokeCost) - a cheap, predictable Gems shortcut to
 // summon a Meteorite instantly. Doesn't touch manualSpawnCount, so using it
 // never makes the Stardust-priced Invoke button more expensive.
-const GEMS_INVOKE_COST = 3;
+const GEMS_INVOKE_COST = 5;
 
 const TIERS = [
   { n: 1, name: "Météorite", emoji: "☄️", from: "#8a8a8a", to: "#2b2b2b" },
@@ -71,7 +71,11 @@ const AMBIANCES = [
 ];
 
 const EMOJI_SETS = [
-  { id: "default", name: "Cases classiques", cost: 0, currency: "gems" },
+  // "classic", not "default" - AMBIANCES also has a "default" entry, and
+  // findCosmeticItem() (economy.js) checks AMBIANCES first, so a shared id
+  // meant equipping "the base icon set" silently re-equipped the base
+  // ambiance instead - the base icon set could never actually be selected.
+  { id: "classic", name: "Cases classiques", cost: 0, currency: "gems" },
   // Tier 1 used to be Cerise/Petit Pois - both unrecognizable at tile size
   // (tiny red blob / tiny green blob), swapped for something unmistakable.
   { id: "fruits", name: "Fruits du Cosmos", cost: 300, currency: "gems",
@@ -340,10 +344,10 @@ const ACHIEVEMENTS = [
 
 // ---- Shop catalog (soft currency: stardust / gems) ----
 const SHOP_GEM_ITEMS = [
-  { id: "skipCell", name: "Sauter une case", desc: "Débloque instantanément n'importe quelle case verrouillée", cost: 25 },
-  { id: "swapCells", name: "Échanger deux cases", desc: "Permute le contenu de deux cases au choix - le moyen de créer une fusion quand aucune paire adjacente n'existe", cost: 50 },
+  { id: "skipCell", name: "Sauter une case", desc: "Débloque instantanément une case verrouillée", cost: 25 },
+  { id: "swapCells", name: "Échanger deux cases", desc: "Permute le contenu de deux cases au choix", cost: 50 },
   { id: "streakFreeze", name: "Gel de série", desc: "Protège ta série de connexion pendant 1 jour manqué", cost: 20 },
-  { id: "cosmicBox", name: "Boîte Cosmique", desc: "Un Dieu au hasard (les Dieux rares sont plus rares) - un doublon se change en Gems", cost: 120 },
+  { id: "cosmicBox", name: "Boîte Cosmique", desc: "Un Dieu au hasard - un doublon se change en Gems", cost: 120 },
 ];
 
 // Cosmic Box odds: Commun is the most likely roll, Légendaire the rarest.

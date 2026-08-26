@@ -4,19 +4,28 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Godspark</title>
-<meta name="description" content="Fusionnez des astéroïdes en lunes, planètes et étoiles, produisez du Stardust en continu, puis déclenchez un Big Bang pour recommencer plus fort.">
+<meta name="description" content="Un Cosmos brisé, des Dieux endormis, et toi seul pour les réveiller. Fusionne des astéroïdes en mondes entiers, provoque ton Big Bang, et perce peu à peu le mystère de ce qui a vraiment causé la Rupture.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Godspark">
-<meta property="og:description" content="Fusionnez, produisez, explosez, recommencez plus fort. Un jeu de fusion cosmique idle avec prestige.">
+<meta property="og:description" content="Réveille les Dieux endormis d'un Cosmos brisé. Fusionne, prospère, provoque ton Big Bang - et découvre la vérité sur la Rupture.">
 <meta property="og:image" content="social-share.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Godspark">
-<meta name="twitter:description" content="Fusionnez, produisez, explosez, recommencez plus fort.">
+<meta name="twitter:description" content="Fusionne. Réveille les Dieux. Perce le mystère de la Rupture.">
 <meta name="twitter:image" content="social-share.png">
 <!-- og:image/twitter:image must be an ABSOLUTE URL (https://votre-domaine/social-share.png)
      once this is deployed to a real host - relative paths don't work for link-preview crawlers
      (WhatsApp, iMessage, etc). The source image is generated in assets/social-share-source.html. -->
-<link rel="stylesheet" href="css/style.css?v=18">
+<!-- Custom logo (spark burst on a cosmic gradient, no emoji) - used both for
+     "Add to Home Screen" (apple-touch-icon, the icon iOS actually uses there,
+     NOT the <title> tag) and as the real app icon source for the eventual
+     Xcode/native build (icon-512.png, resize into the full AppIcon set). -->
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="favicon.png">
+<meta name="apple-mobile-web-app-title" content="Godspark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0620">
+<link rel="stylesheet" href="css/style.css?v=19">
 </head>
 <body>
 <div id="starsBg"></div>
@@ -53,8 +62,9 @@
   </div>
 
   <div class="toolbar">
-    <button class="btn primary" id="invokeBtn">
-      <span>Invoquer</span><span class="cost" id="invokeCost">15</span>✨
+    <button class="btn primary invokeBtn" id="invokeBtn">
+      <span>Invoquer</span>
+      <span class="invokeCosts">✨<span id="invokeCost">15</span> <span class="invokeCostsSep">ou</span> 💎<span id="invokeCostGems">5</span></span>
     </button>
     <button class="btn bigbang hidden" id="bigBangBtn">💥 Big Bang</button>
     <div class="hint" id="selectionHint"></div>
@@ -215,6 +225,16 @@
   </div>
 </div>
 
+<!-- Purchase confirmation: replaces a plain toast for every IAP, so the effect (VIP especially) is unmistakable -->
+<div class="modalOverlay hidden" id="purchaseConfirmModal">
+  <div class="modalCard" style="text-align:center;">
+    <div class="purchaseCheckAnim">✅</div>
+    <h3 id="purchaseConfirmTitle">Achat confirmé !</h3>
+    <p class="desc" id="purchaseConfirmText"></p>
+    <button class="btn primary full" id="purchaseConfirmClose" style="margin-top:8px;">Continuer</button>
+  </div>
+</div>
+
 <!-- Cosmic Box reveal: a spin-then-reveal animation instead of just a toast -->
 <div class="modalOverlay hidden" id="cosmicBoxModal">
   <div class="modalCard cosmicBoxCard">
@@ -301,15 +321,15 @@
   </div>
 </div>
 
-<script src="js/config.js?v=18"></script>
-<script src="js/state.js?v=18"></script>
-<script src="js/audio.js?v=18"></script>
-<script src="js/services.js?v=18"></script>
-<script src="js/economy.js?v=18"></script>
-<script src="js/gods.js?v=18"></script>
-<script src="js/retention.js?v=18"></script>
-<script src="js/ui.js?v=18"></script>
-<script src="js/input.js?v=18"></script>
-<script src="js/main.js?v=18"></script>
+<script src="js/config.js?v=19"></script>
+<script src="js/state.js?v=19"></script>
+<script src="js/audio.js?v=19"></script>
+<script src="js/services.js?v=19"></script>
+<script src="js/economy.js?v=19"></script>
+<script src="js/gods.js?v=19"></script>
+<script src="js/retention.js?v=19"></script>
+<script src="js/ui.js?v=19"></script>
+<script src="js/input.js?v=19"></script>
+<script src="js/main.js?v=19"></script>
 </body>
 </html>

@@ -73,9 +73,9 @@ function defaultState() {
     dailyStats: { date: null, stardustAtDayStart: 0 }, // see ensureDailyStats() - powers the Stardust info popup's "today" figure
 
     skills: { prod: 0, swarm: 0, gravity: 0, echo: 0, luck: 0 },
-    ownedSkins: ["default"], // covers both AMBIANCES and EMOJI_SETS ids - safe since each list's ids are unique to it
+    ownedSkins: ["default", "classic"], // "default" ambiance + "classic" emoji set - the two free starting cosmetics
     equippedAmbiance: "default",
-    equippedEmojiSet: "default",
+    equippedEmojiSet: "classic",
 
     dailyLogin: { lastClaimDay: null, streak: 0, cycleDay: 1, streakFreezeCharges: 0 },
     skinFragments: 0,
