@@ -347,7 +347,12 @@ const SHOP_GEM_ITEMS = [
   { id: "skipCell", name: "Sauter une case", desc: "Débloque instantanément une case verrouillée", cost: 25 },
   { id: "swapCells", name: "Échanger deux cases", desc: "Permute le contenu de deux cases au choix", cost: 50 },
   { id: "streakFreeze", name: "Gel de série", desc: "Protège ta série de connexion pendant 1 jour manqué", cost: 20 },
-  { id: "cosmicBox", name: "Boîte Cosmique", desc: "Un Dieu au hasard - un doublon se change en Gems", cost: 120 },
+  // Odds spelled out in the description itself (not just BOX_RARITY_WEIGHTS
+  // in code) because Gems are directly purchasable with real money - Apple
+  // requires disclosed odds for any randomized reward reachable that way
+  // (App Review Guideline 3.1.1). Keep this string's percentages in sync
+  // with BOX_RARITY_WEIGHTS below by hand if those ever change.
+  { id: "cosmicBox", name: "Boîte Cosmique", desc: "Un Dieu au hasard - Commun 50% · Rare 30% · Épique 15% · Légendaire 5% (un doublon se change en Gems)", cost: 120 },
 ];
 
 // Cosmic Box odds: Commun is the most likely roll, Légendaire the rarest.
